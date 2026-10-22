@@ -879,3 +879,34 @@ button {
     scroll-behavior: auto !important;
   }
 }
+/* 复习工作台以滚动画布容纳大型导图，详情在手机上移到画布下方。 */
+.study-page { max-width: 1200px; margin: 0 auto; padding: 32px 0; }
+.study-heading { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin: 28px 0; }
+.study-heading h2 { font-size: 20px; font-weight: 600; margin-bottom: 8px; overflow-wrap: anywhere; }
+.study-tabs { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; border-bottom: 1px solid #dce2d5; padding-bottom: 12px; margin-bottom: 20px; }
+.study-tabs [role=tab] { padding: 10px 12px; border-radius: 8px; }
+.study-tabs [aria-selected=true] { background: #24463d; color: white; }
+.mindmap-toolbar { display: flex; gap: 8px; flex-wrap: wrap; }
+.mindmap-toolbar input { border: 1px solid #c5cfbd; border-radius: 8px; padding: 10px 12px; min-width: 0; flex: 1 1 200px; background: white; }
+.mindmap-toolbar .button { padding: 8px 12px; font-size: 13px; }
+.mindmap-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 16px; }
+.mindmap-canvas { min-width: 0; height: 560px; overflow: auto; border: 1px solid #dce2d5; border-radius: 16px; background: #fafbf6; }
+.mindmap-canvas svg { max-width: none; display: block; }
+.map-node { cursor: pointer; outline: none; }
+.map-node:focus rect { stroke: #d95f34; stroke-width: 3px; }
+.mindmap-detail { background: white; border: 1px solid #dce2d5; border-radius: 16px; padding: 22px; overflow-wrap: anywhere; }
+.mindmap-detail h3 { font-size: 20px; font-weight: 600; margin: 14px 0; }
+.mindmap-detail strong { display: block; color: #526c44; line-height: 1.7; }
+.mindmap-detail p { font-size: 14px; line-height: 1.9; margin-top: 16px; white-space: pre-wrap; }
+.mindmap-detail h4 { margin-top: 24px; font-weight: 600; }
+.study-notes { background: white; border: 1px solid #dce2d5; border-radius: 16px; padding: 28px; overflow-wrap: anywhere; }
+.study-notes h2 { font-size: 22px; font-weight: 600; margin: 20px 0 16px; }
+.study-notes h3 { font-weight: 600; font-size: 17px; margin: 24px 0 8px; }
+.study-notes li, .study-notes p { line-height: 1.9; margin-bottom: 10px; white-space: pre-wrap; }
+.study-notes ol { list-style: decimal; padding-left: 24px; }
+@media (max-width: 760px) {
+  .mindmap-layout { grid-template-columns: minmax(0, 1fr); }
+  .mindmap-canvas { height: 420px; }
+  .study-heading .button { width: 100%; }
+  .study-notes { padding: 18px; }
+}

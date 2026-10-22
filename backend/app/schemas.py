@@ -73,6 +73,22 @@ class DeckResponse(BaseModel):
     created_at: datetime
 
 
+class StudyPoint(BaseModel):
+    card_id: int
+    title: str
+    key_point: str
+    explanation: str
+    clarification: str
+    wrong_count: int
+
+
+class StudyMaterial(BaseModel):
+    deck_id: int
+    title: str
+    points: list[StudyPoint]
+    excluded_count: int
+
+
 class SettingsInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
     base_url: Annotated[NonEmpty, Field(max_length=2048)]

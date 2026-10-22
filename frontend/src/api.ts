@@ -5,6 +5,7 @@ import type {
   KnowledgeCard,
   SettingsInput,
   TaskState,
+  StudyMaterial,
 } from "./types";
 
 let desktopBase: Promise<string> | undefined;
@@ -34,6 +35,7 @@ export async function request<T>(
   path: string,
   init: RequestInit = {},
   timeout = 15000,
+  responseType: "json" | "blob" = "json",
 ): Promise<T> {
   const controller = new AbortController();
   const abort = () => controller.abort();
@@ -54,7 +56,7 @@ export async function request<T>(
           : `请求失败（${response.status}），请检查输入后重试`,
       );
     }
-    return (await response.json()) as T;
+    return (await (responseType === "blob" ? response.blob() : response.json())) as T;
   } catch (error) {
     if (error instanceof TypeError)
       throw new Error("连接中断，请检查网络和后端服务，然后重试");
@@ -72,6 +74,10 @@ const json = (body: unknown, method = "POST"): RequestInit => ({
   body: JSON.stringify(body),
 });
 export const api = {
+  study: (id: number, signal?: AbortSignal) =>
+    request<StudyMaterial>(`/api/decks/${id}/study`, { signal }),
+  studyWord: (id: number) =>
+    request<Blob>(`/api/decks/${id}/study.docx`, {}, 60000, "blob"),
   upload(file: File) {
     const body = new FormData();
     body.append("file", file);

@@ -216,6 +216,7 @@ export default function UploadPage() {
                     开始学习
                     <ArrowRight size={18} />
                   </Link>
+                  <Link className="button secondary w-full mt-3" to={`/decks/${task.deck_id}/study`}>Word 复习资料 / 互动导图</Link>
                 </>
               )}
               {task?.status === "failed" && (
@@ -318,21 +319,21 @@ export default function UploadPage() {
         {decks.length ? (
           <div className="deck-grid">
             {decks.map((deck) => (
-              <Link
+              <div
                 className="deck-tile"
                 key={deck.id}
-                to={`/decks/${deck.id}`}
               >
                 <FileText size={22} />
                 <div className="min-w-0 flex-1">
-                  <h3 className="truncate">{deck.title}</h3>
+                  <Link to={`/decks/${deck.id}`}><h3 className="truncate">{deck.title}</h3></Link>
                   <p>
                     {deck.card_count} 张知识卡 ·{" "}
                     {new Date(deck.created_at).toLocaleDateString("zh-CN")}
                   </p>
+                  <Link className="text-link text-sm" to={`/decks/${deck.id}/study`}>Word 资料 / 互动导图 →</Link>
                 </div>
-                <ArrowRight size={17} />
-              </Link>
+                <Link to={`/decks/${deck.id}`} aria-label={`学习${deck.title}`}><ArrowRight size={17} /></Link>
+              </div>
             ))}
           </div>
         ) : (

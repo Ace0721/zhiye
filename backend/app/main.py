@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import Settings, settings
 from app.db import Base, create_database
-from app.routers import cards, review, settings as settings_router, tasks, upload
+from app.routers import cards, review, settings as settings_router, study, tasks, upload
 from app.services.task_manager import TaskManager
 
 
@@ -33,7 +33,7 @@ def create_app(config: Settings | None = None) -> FastAPI:
             await manager.shutdown()
             engine.dispose()
 
-    application = FastAPI(title="Zhiye", version="0.1.1", lifespan=lifespan)
+    application = FastAPI(title="Zhiye", version="0.2.0", lifespan=lifespan)
 
     @application.exception_handler(RequestValidationError)
     async def validation_error(_request: Request, _error: RequestValidationError) -> JSONResponse:
@@ -54,6 +54,7 @@ def create_app(config: Settings | None = None) -> FastAPI:
     application.include_router(tasks.router)
     application.include_router(cards.router)
     application.include_router(review.router)
+    application.include_router(study.router)
     application.include_router(settings_router.router)
     return application
 

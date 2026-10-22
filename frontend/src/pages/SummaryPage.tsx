@@ -107,6 +107,7 @@ export default function SummaryPage() {
             </div>
           </div>
           <div className="summary-actions">
+            <Link className="button secondary" to={`/decks/${deckId}/study`}>Word 资料 / 互动导图</Link>
             <button className="button primary" onClick={() => void download()}>
               <Download size={17} />
               下载 .md

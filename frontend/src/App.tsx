@@ -4,6 +4,7 @@ import UploadPage from "./pages/UploadPage";
 import SwipePage from "./pages/SwipePage";
 import SummaryPage from "./pages/SummaryPage";
 import SettingsPage from "./pages/SettingsPage";
+import StudyPage from "./pages/StudyPage";
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
           <Route path="/" element={<UploadPage />} />
           <Route path="/decks/:deckId" element={<SwipePage />} />
           <Route path="/decks/:deckId/summary" element={<SummaryPage />} />
+          <Route path="/decks/:deckId/study" element={<StudyPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route
             path="*"

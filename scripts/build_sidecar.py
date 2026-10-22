@@ -33,7 +33,7 @@ def main() -> None:
                "--name", "zhiye-backend", "--paths", str(backend),
                "--add-data", f"{backend / 'app' / 'prompts'}{os.pathsep}app/prompts",
                "--collect-all", "pdfplumber", "--collect-all", "pypdfium2",
-               "--collect-all", "pptx", "--collect-all", "openai",
+               "--collect-all", "pptx", "--collect-all", "openai", "--collect-all", "docx",
                "--collect-all", "uvicorn", "--collect-all", "sqlalchemy",
                "--distpath", str(backend / "dist"), "--workpath", str(backend / "build"),
                "--specpath", str(backend / "build"), str(backend / "sidecar.py")]

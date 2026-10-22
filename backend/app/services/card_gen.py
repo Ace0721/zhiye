@@ -18,7 +18,15 @@ CARD_LIST = TypeAdapter(list[GeneratedCard])
 PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "card_gen.txt"
 
 
-def is_course_admin_card(card: GeneratedCard) -> bool:
+class CardTarget(Protocol):
+    @property
+    def title(self) -> str: ...
+
+    @property
+    def question(self) -> str: ...
+
+
+def is_course_admin_card(card: CardTarget) -> bool:
     """仅拦截标题或考查目标明确指向课程事务的卡片，避免误删学科正文。"""
     target = card.title + "\n" + card.question
     patterns = (

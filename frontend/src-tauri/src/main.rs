@@ -13,6 +13,24 @@ struct BackendState {
 fn get_api_port(state: State<'_, BackendState>) -> u16 { state.port }
 
 #[tauri::command]
+async fn save_study_docx(filename: String, content: Vec<u8>) -> Result<Option<String>, String> {
+    if content.len() > 20 * 1024 * 1024 || !content.starts_with(b"PK") {
+        return Err("Word 文件无效或超过 20MB".to_string());
+    }
+    let name = std::path::Path::new(&filename).file_name().and_then(|name| name.to_str()).unwrap_or("zhiye-review.docx").to_string();
+    tauri::async_runtime::spawn_blocking(move || {
+        let selected = rfd::FileDialog::new().add_filter("Word 文档", &["docx"]).set_file_name(name).save_file();
+        match selected {
+            Some(path) => {
+                std::fs::write(&path, content).map_err(|_| "保存失败，请检查目录权限和磁盘空间".to_string())?;
+                Ok(Some(path.to_string_lossy().to_string()))
+            }
+            None => Ok(None),
+        }
+    }).await.map_err(|_| "导出操作未完成".to_string())?
+}
+
+#[tauri::command]
 async fn save_markdown(filename: String, content: String) -> Result<Option<String>, String> {
     // 路径只能由用户在原生对话框选择，不接受网页传入的任意写入路径。
     let name = std::path::Path::new(&filename).file_name().and_then(|name| name.to_str()).unwrap_or("zhiye-summary.md").to_string();
@@ -50,7 +68,7 @@ fn main() {
             if let Some(window) = app.get_webview_window("main") { let _ = window.set_focus(); }
         }))
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![get_api_port, save_markdown])
+        .invoke_handler(tauri::generate_handler![get_api_port, save_markdown, save_study_docx])
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;

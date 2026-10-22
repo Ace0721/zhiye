@@ -42,3 +42,18 @@ export interface DeckInfo {
   card_count: number;
   created_at: string;
 }
+
+export interface StudyPoint {
+  card_id: number;
+  title: string;
+  key_point: string;
+  explanation: string;
+  clarification: string;
+  wrong_count: number;
+}
+export interface StudyMaterial {
+  deck_id: number;
+  title: string;
+  points: StudyPoint[];
+  excluded_count: number;
+}
