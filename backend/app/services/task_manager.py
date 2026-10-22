@@ -131,7 +131,7 @@ class TaskManager:
                 if not result.cards:
                     message = "所有文本块均未能生成卡片，请检查 AI 配置后重新上传"
                     if not result.failed_blocks:
-                        message = "课件文本不足以生成知识卡，AI 返回了空数组，请换一份含知识点的课件"
+                        message = "筛选后没有可生成的学科知识点（课程安排、目录等不出卡），请上传包含知识正文的课件"
                     elif result.failed_blocks:
                         message += "；" + result.failed_blocks[0].error
                     raise AIError(message)

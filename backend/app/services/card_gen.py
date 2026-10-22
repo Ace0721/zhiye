@@ -18,6 +18,20 @@ CARD_LIST = TypeAdapter(list[GeneratedCard])
 PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "card_gen.txt"
 
 
+def is_course_admin_card(card: GeneratedCard) -> bool:
+    """仅拦截标题或考查目标明确指向课程事务的卡片，避免误删学科正文。"""
+    target = card.title + "\n" + card.question
+    patterns = (
+        r"(?:本|这门|该)课程.{0,12}(?:学时|学分|章节安排|章节数量|共.{0,6}章)",
+        r"(?:课程|教学).{0,6}(?:学时|进度安排|时间安排|章节安排|章节分配)",
+        r"(?:学时|学分).{0,8}(?:分配|安排|总数)",
+        r"(?:授课|任课)教师.{0,6}(?:介绍|姓名|联系)",
+        r"(?:上课|作业提交|考勤).{0,6}(?:时间|地点|要求|安排|方式)",
+        r"(?:课程|期末|平时|考试)成绩.{0,6}(?:占比|构成|比例)",
+    )
+    return any(re.search(pattern, target) for pattern in patterns)
+
+
 class CompletionClient(Protocol):
     async def complete(self, prompt: str, text: str) -> str: ...
 
@@ -56,7 +70,8 @@ class CardGenerator:
                 # 退避时释放全局并发槽位，不阻塞其他课件。
                 async with self.semaphore:
                     response = await client.complete(prompt, block.text)
-                return parse_cards(response)
+                # 提示词负责语义筛选；窄范围兜底只剔除明确的课程事务题。
+                return [card for card in parse_cards(response) if not is_course_admin_card(card)]
             except AIError as exc:
                 if not exc.retryable or attempt + 1 == attempts:
                     raise

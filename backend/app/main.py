@@ -33,7 +33,7 @@ def create_app(config: Settings | None = None) -> FastAPI:
             await manager.shutdown()
             engine.dispose()
 
-    application = FastAPI(title="Zhiye", version="0.1.0", lifespan=lifespan)
+    application = FastAPI(title="Zhiye", version="0.1.1", lifespan=lifespan)
 
     @application.exception_handler(RequestValidationError)
     async def validation_error(_request: Request, _error: RequestValidationError) -> JSONResponse:

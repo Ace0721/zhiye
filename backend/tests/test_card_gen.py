@@ -6,13 +6,58 @@ import pytest
 
 from app.schemas import FailedBlock
 from app.services.ai_client import AIError
-from app.services.card_gen import CardGenerator, parse_cards
+from app.services.card_gen import CardGenerator, is_course_admin_card, parse_cards
 from app.services.parser import TextBlock
 from conftest import card_json
 
 
 async def ignore_progress(done: int, failures: list[FailedBlock]) -> None:
     pass
+
+
+@pytest.mark.parametrize("title, question, excluded", [
+    ("课程总课时与章节", "关于本课程的学时与章节安排，正确的是？", True),
+    ("学时分配", "第七章安排多少学时？", True),
+    ("成绩构成", "期末成绩的占比是多少？", True),
+    ("任课教师联系方式", "如何联系任课教师？", True),
+    ("CPU执行时间", "时钟周期如何影响CPU执行时间？", False),
+    ("诉讼程序", "诉讼程序包含哪些阶段？", False),
+    ("学分制的定义", "学分制与学年制有什么区别？", False),
+])
+def test_course_admin_filter_preserves_subject_knowledge(title: str, question: str, excluded: bool) -> None:
+    data = json.loads(card_json(title))
+    data[0]["question"] = question
+    assert is_course_admin_card(parse_cards(json.dumps(data))[0]) is excluded
+
+
+async def test_mixed_block_filters_admin_but_keeps_knowledge_in_order() -> None:
+    class Client:
+        async def complete(self, prompt: str, text: str) -> str:
+            assert "本块没有值得学习的学科知识时返回 []" in prompt
+            cards = json.loads(card_json("课程学时安排"))
+            cards += json.loads(card_json("诉讼程序")) + json.loads(card_json("举证责任"))
+            return json.dumps(cards)
+
+    result = await CardGenerator(asyncio.Semaphore(1), 1, 0).generate(blocks(1), Client(), ignore_progress)
+    assert [card.title for card in result.cards] == ["诉讼程序", "举证责任"]
+    assert result.success_blocks == 1
+    assert not result.failed_blocks
+
+
+async def test_admin_only_blocks_are_skipped_without_retry_or_failure() -> None:
+    calls = 0
+
+    class Client:
+        async def complete(self, prompt: str, text: str) -> str:
+            nonlocal calls
+            calls += 1
+            return "[]" if text == "0" else card_json("课程学时安排")
+
+    result = await CardGenerator(asyncio.Semaphore(2), 2, 0).generate(blocks(2), Client(), ignore_progress)
+    assert result.cards == []
+    assert result.success_blocks == 2
+    assert not result.failed_blocks
+    assert calls == 2
 
 
 def blocks(count: int) -> list[TextBlock]:

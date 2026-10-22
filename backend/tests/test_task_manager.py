@@ -64,7 +64,7 @@ async def test_partial_success_persisted_and_restart_keeps_cards(manager: TaskMa
     assert manager.snapshot(task_id).model_dump() == state.model_dump()
 
 
-@pytest.mark.parametrize("texts, expected", [(["bad", "bad"], "认证失败"), (["empty"], "空数组")])
+@pytest.mark.parametrize("texts, expected", [(["bad", "bad"], "认证失败"), (["empty"], "没有可生成的学科知识点")])
 async def test_all_failed_or_no_cards(manager: TaskManager, texts: list[str], expected: str) -> None:
     _, state = await run_task(manager, texts)
     assert state.status == "failed"
