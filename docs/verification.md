@@ -16,10 +16,10 @@
 | Docker 启动与接口 | 通过 | Compose up --wait、健康检查、Nginx 同源代理、设置测试、上传、卡片、答题和导出通过；本机默认 8080 被其他服务占用，验收使用空闲临时端口 |
 | Docker 持久化 | 通过 | 重启 backend 后，错题、卡片及配置仍可查询；测试数据使用独立目录，测试容器已停止清理 |
 | Windows 单文件后端 | 通过 | PyInstaller --onefile 构建；直接运行 EXE，通过 20 页合成 PDF 的真实 HTTP/curl 闭环，不调用本机 Python 作为服务器 |
-| Windows MSI | 未完成 | 两轮本机构建未能完成 Cargo 网络依赖解析，未得到已验证 MSI，详见桌面保底对比 |
-| macOS DMG | 未验证 | 已编写 ARM64 / Intel 构建矩阵，本机为 Windows，未在 macOS 或 GitHub runner 上执行 |
-| 安装后端到端 | 未验证 | 尚无安装器，不能宣称无需 Python/Node 的完整桌面安装验收通过；仅单文件后端验证通过 |
-| GitHub Release | 待构建 | 已创建公开仓库 Ace0721/zhiye，准备推送源码并触发跨平台构建；尚未得到安装包结果 |
+| Windows MSI | 构建及启动通过 | GitHub runner 已生成 MSI；本机校验构建 ZIP 的 SHA256 后解包，启动桌面主程序成功，随附后端动态端口健康检查成功，AppData 数据库存在，初始 API Key 为空 |
+| macOS DMG | 构建通过 | GitHub macos-14 ARM64 与 macos-15-intel runner 均已生成 DMG；本机为 Windows，尚未在真实 Mac 上安装体验 |
+| 安装后端到端 | 部分验证 | Windows 包已解包启动，内含主程序与单文件后端；尚未在无 Python/Node 的全新系统执行完整安装向导与真实 AI 学习流程 |
+| GitHub Release | 已发布 | [v0.1.0](https://github.com/Ace0721/zhiye/releases/tag/v0.1.0) 已公开发布，包含 Windows x64 MSI、Apple Silicon DMG 和 Intel Mac DMG；三个构建任务及发布任务均成功 |
 | 真实厂商连接 | 未验证 | 没有用户提供的有效 API Key，未请求 DeepSeek / Kimi / 通义 / OpenAI 真实服务 |
 | 20 页一分钟目标 | 未验证 | 本地模拟 API 的数秒耗时不作为真实云端性能证据；还需真实课件与有效 API 配置 |
 

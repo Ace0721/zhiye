@@ -53,9 +53,15 @@ docker compose down
 
 发布者推送 `v*` 标签后，GitHub Actions 会在各平台构建安装包并上传到仓库 Releases。下载对应系统和架构的包，安装后在 **AI 设置**自行填写密钥。无需预装 Python 或 Node；Windows 缺少 WebView2 时安装器会自动下载运行时。
 
-**当前实测状态见 [验收记录](docs/verification.md)**。本地生成构建配置不等于已发布 Release。未签名包可能受到系统提示，正式分发可在 CI 增加平台签名与 macOS 公证。
+**[v0.1.0 已发布](https://github.com/Ace0721/zhiye/releases/tag/v0.1.0)**，当前实测状态见 [验收记录](docs/verification.md)。未签名包可能受到系统提示，正式分发可在 CI 增加平台签名与 macOS 公证。
 
-本机两轮 Tauri 构建受 Cargo 网络依赖阻断，当前没有已验证的 MSI/DMG；已提供 [Electron 保底方案对比](docs/desktop-fallback.md)，并保留指定的 Tauri 技术栈。
+| 系统 | 安装包 |
+| --- | --- |
+| Windows x64 | [下载 MSI](https://github.com/Ace0721/zhiye/releases/download/v0.1.0/Zhiye_0.1.0_x64_en-US.msi) |
+| macOS Apple Silicon | [下载 DMG](https://github.com/Ace0721/zhiye/releases/download/v0.1.0/Zhiye_0.1.0_aarch64.dmg) |
+| macOS Intel | [下载 DMG](https://github.com/Ace0721/zhiye/releases/download/v0.1.0/Zhiye_0.1.0_x64.dmg) |
+
+Windows MSI、Apple Silicon 和 Intel Mac DMG 已由 GitHub Actions 构建成功，Windows 包已在本机完成解包启动检查。本机最初两轮构建曾受 Cargo 网络阻断；保留 [Electron 保底方案对比](docs/desktop-fallback.md)供后续参考，当前使用指定的 Tauri 技术栈。
 
 桌面数据通过 Tauri `app_data_dir()` 获取：Windows 为 `%APPDATA%\io.zhiye.desktop`，macOS 为 `~/Library/Application Support/io.zhiye.desktop`，不写安装目录。启动时分配空闲回环端口并注入 `ZHIYE_PORT`、`ZHIYE_DATA_DIR`；健康检查通过后打开应用，退出时终止整个 sidecar 进程组。
 
