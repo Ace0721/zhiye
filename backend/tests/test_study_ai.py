@@ -135,3 +135,31 @@ async def test_invalid_json_retries_once(config, monkeypatch) -> None:
         manager.submit(deck.id, "notes")
         await asyncio.gather(*list(manager.running.values()))
         assert calls == 2 and manager.snapshot(deck.id, "notes")["status"] == "completed"
+
+
+async def test_auth_failure_is_persisted_and_no_fake_document_is_returned(config) -> None:
+    app = create_app(config)
+    calls = 0
+
+    class Client:
+        def __init__(self, *args): pass
+        async def complete(self, prompt, text, **kwargs):
+            nonlocal calls
+            calls += 1
+            raise AIError("AI 认证失败或无访问权限，请检查 API Key")
+        async def close(self): pass
+
+    async with app.router.lifespan_context(app):
+        manager = app.state.study_manager
+        manager.client_factory = Client
+        with app.state.sessions.begin() as session:
+            deck = Deck(title="知识", source_filename="a.pdf")
+            session.add(deck); session.flush()
+            session.add(DeckSource(deck_id=deck.id, text="知识正文"))
+        manager.submit(deck.id, "notes")
+        await asyncio.gather(*list(manager.running.values()))
+        state = manager.snapshot(deck.id, "notes")
+        assert calls == 1 and state["status"] == "failed"
+        assert "认证失败" in state["error"] and state["data"] is None
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+            assert (await client.get(f"/api/decks/{deck.id}/study.docx")).status_code == 409

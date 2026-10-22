@@ -38,7 +38,7 @@
 
 - 原始课件仅在本机临时保存和解析，解析结束后删除；暂不支持扫描件 OCR。
 - **提取的课件文字会发送到你配置的云端 API**。本地优先不代表离线 AI。
-- 卡片、答题、任务和配置存入本地 SQLite。密钥不写日志，GET 设置仅返回是否已配置；密钥目前保存在本地 SQLite 中，请保护数据目录。
+- 解析正文、卡片、AI 复习结果、答题、任务和配置存入本地 SQLite。密钥不写日志，GET 设置仅返回是否已配置；密钥目前保存在本地 SQLite 中，请保护数据目录。
 - 项目不内置密钥、不依赖项目方的付费云服务。你选择的 AI 厂商可能按其规则收费。
 
 ## Docker：一条命令启动
@@ -68,13 +68,13 @@ docker compose down
 
 发布者推送 `v*` 标签后，GitHub Actions 会在各平台构建安装包并上传到仓库 Releases。下载对应系统和架构的包，安装后在 **AI 设置**自行填写密钥。无需预装 Python 或 Node；Windows 缺少 WebView2 时安装器会自动下载运行时。
 
-**[v0.1.0 已发布](https://github.com/Ace0721/zhiye/releases/tag/v0.1.0)**，当前实测状态见 [验收记录](docs/verification.md)。未签名包可能受到系统提示，正式分发可在 CI 增加平台签名与 macOS 公证。
+**[v0.3.0 已发布](https://github.com/Ace0721/zhiye/releases/tag/v0.3.0)**，当前实测状态见 [验收记录](docs/verification.md)。未签名包可能受到系统提示，正式分发可在 CI 增加平台签名与 macOS 公证。
 
 | 系统 | 安装包 |
 | --- | --- |
-| Windows x64 | [下载 MSI](https://github.com/Ace0721/zhiye/releases/download/v0.1.0/Zhiye_0.1.0_x64_en-US.msi) |
-| macOS Apple Silicon | [下载 DMG](https://github.com/Ace0721/zhiye/releases/download/v0.1.0/Zhiye_0.1.0_aarch64.dmg) |
-| macOS Intel | [下载 DMG](https://github.com/Ace0721/zhiye/releases/download/v0.1.0/Zhiye_0.1.0_x64.dmg) |
+| Windows x64 | [下载 MSI](https://github.com/Ace0721/zhiye/releases/download/v0.3.0/Zhiye_0.3.0_x64_en-US.msi) |
+| macOS Apple Silicon | [下载 DMG](https://github.com/Ace0721/zhiye/releases/download/v0.3.0/Zhiye_0.3.0_aarch64.dmg) |
+| macOS Intel | [下载 DMG](https://github.com/Ace0721/zhiye/releases/download/v0.3.0/Zhiye_0.3.0_x64.dmg) |
 
 Windows MSI、Apple Silicon 和 Intel Mac DMG 已由 GitHub Actions 构建成功，Windows 包已在本机完成解包启动检查。本机最初两轮构建曾受 Cargo 网络阻断；保留 [Electron 保底方案对比](docs/desktop-fallback.md)供后续参考，当前使用指定的 Tauri 技术栈。
 
@@ -239,8 +239,8 @@ macOS 最后一条改为 `npm run tauri build -- --bundles dmg`。构建脚本�
 推送本仓库到自己的 GitHub 仓库后：
 
 ```sh
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
 `release.yml` 分别测试、构建 Windows、macOS ARM64 和 Intel，全部成功后合并产物、创建 Release。手动运行 workflow 只上传 Actions artifacts。版本为 `0.1.0`；下一次发布同步更新 package.json、Cargo.toml、tauri.conf.json。
