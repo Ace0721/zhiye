@@ -43,6 +43,14 @@ export interface DeckInfo {
   created_at: string;
 }
 
+export interface ReviewSummary {
+  title: string;
+  total_cards: number;
+  wrong_count: number;
+  points: { card_id: number; title: string; key_point: string; wrong_count: number }[];
+  wrong_cards: { card_id: number; title: string; question: string; correct_answer: string; reexplain: string; wrong_count: number }[];
+}
+
 export interface StudyPoint {
   card_id: number;
   title: string;

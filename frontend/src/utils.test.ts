@@ -26,5 +26,6 @@ it("进度文字使用真实块数", () => {
 });
 it("导出文件名去除路径及非法字符", () => {
   expect(safeFilename("../数学:复习?")).not.toMatch(/[/\\:?]/);
-  expect(safeFilename("")).toBe("知页-考前救命包.md");
+  expect(safeFilename("")).toBe("知页-考前救命包.docx");
+  expect(safeFilename("数学", "notes")).toBe("数学-精简复习资料.docx");
 });

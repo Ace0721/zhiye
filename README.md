@@ -4,9 +4,11 @@
 
 **每一页，都学得明白。**
 
-上传老师的 PDF / PPTX，AI 按原顺序拆成竖屏知识卡。一句人话解释、一个重点、一题自测；答错自动回炉，最后导出 Markdown「考前救命包」。
+上传老师的 PDF / PPTX，AI 按原顺序拆成竖屏知识卡。一句人话解释、一个重点、一题自测；答错自动回炉，最后导出 Word「考前救命包」。
 
 拆卡先筛选学习价值：课程学时、章节安排、考勤、成绩占比等事务信息不出题；保留定义、原理、公式、易混点与解题方法。旧卡组不会自动重写，升级后重新上传可应用新规则。
+
+「考前救命包」根据个人答题记录按错误次数整理薄弱点、错题正确答案和补充解释，直接下载可编辑的 `.docx`，不额外调用 AI；没有错题时提供全课重点速记。页面提供正常排版预览，无需使用 Markdown。
 
 ## Word 复习资料和互动思维导图
 
@@ -178,7 +180,8 @@ AI 配置优先级为 **AppSetting > 环境变量 > 默认值**，数据库使�
 | GET | `/api/decks/{deck_id}/cards` | 按 order_index 升序，返回 options 数组 |
 | POST | `/api/cards/{card_id}/answer` | `{selected_index}`，返回判题和再解释 |
 | GET | `/api/decks/{deck_id}/wrong` | 曾答错的卡片，去重 |
-| GET | `/api/decks/{deck_id}/summary` | `{title, markdown, wrong_count, total_cards}` |
+| GET | `/api/decks/{deck_id}/summary` | 结构化重点和错题预览：`{title, points, wrong_cards, wrong_count, total_cards}` |
+| GET | `/api/decks/{deck_id}/summary.docx` | 本地生成考前救命包 Word，不调用 AI |
 | GET | `/api/settings` | `{base_url, model, api_key_configured}` |
 | PUT | `/api/settings` | `{base_url, api_key?, model}` |
 | POST | `/api/settings/test` | 可选当前配置 body；返回 success、error_type、message |

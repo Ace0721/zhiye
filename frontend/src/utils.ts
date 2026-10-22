@@ -20,12 +20,12 @@ export function taskLabel(task: TaskState): string {
       return "这次生成未完成";
   }
 }
-export function safeFilename(title: string): string {
+export function safeFilename(title: string, purpose: "summary" | "notes" = "summary"): string {
   return (
     (title
       .replace(/[<>:"/\\|?*\x00-\x1f]/g, "_")
       .trim()
-      .slice(0, 80) || "知页") + "-考前救命包.md"
+      .slice(0, 80) || "知页") + (purpose === "notes" ? "-精简复习资料.docx" : "-考前救命包.docx")
   );
 }
 export function networkMessage(error: unknown): string {

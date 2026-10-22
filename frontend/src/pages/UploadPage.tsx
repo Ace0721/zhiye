@@ -288,7 +288,7 @@ export default function UploadPage() {
           <span className="feature-number">03</span>
           <div>
             <h3>考前救命包</h3>
-            <p>把易错重点，装进一份 Markdown</p>
+            <p>把薄弱点和错题，整理成一份 Word</p>
           </div>
         </div>
       </section>

@@ -54,7 +54,7 @@ export default function StudyPage() {
     setSaving(true); setError("");
     try {
       const blob = await api.studyWord(Number(deckId));
-      const filename = safeFilename(notes.title).replace(/\.md$/, "-精简复习资料.docx");
+      const filename = safeFilename(notes.title, "notes");
       if (isDesktop()) {
         const { invoke } = await import("@tauri-apps/api/core");
         const path = await invoke<string | null>("save_study_docx", { filename, content: Array.from(new Uint8Array(await blob.arrayBuffer())) });

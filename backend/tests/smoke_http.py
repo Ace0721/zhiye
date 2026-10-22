@@ -147,8 +147,13 @@ def main() -> None:
                 wrong = request(f"/api/decks/{state['deck_id']}/wrong")
                 assert len(wrong) == 1
                 summary = request(f"/api/decks/{state['deck_id']}/summary")
-                assert "考前救命包" in summary["markdown"]
                 assert summary["wrong_count"] == 1
+                assert summary["wrong_cards"][0]["card_id"] == cards[0]["id"]
+                summary_word = subprocess.run([curl, "--fail-with-body", "--silent", "--max-time", "10",
+                    f"http://127.0.0.1:{backend_port}/api/decks/{state['deck_id']}/summary.docx"], capture_output=True, check=True)
+                rescue = Document(BytesIO(summary_word.stdout))
+                rescue_text = "\n".join(paragraph.text for paragraph in rescue.paragraphs)
+                assert "考前救命包" in rescue_text and "正确答案：A. 加倍" in rescue_text
                 material = request(f"/api/decks/{state['deck_id']}/study")
                 assert material["points"]
                 for kind in ("notes", "map"):

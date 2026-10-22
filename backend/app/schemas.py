@@ -73,6 +73,30 @@ class DeckResponse(BaseModel):
     created_at: datetime
 
 
+class SummaryPoint(BaseModel):
+    card_id: int
+    title: str
+    key_point: str
+    wrong_count: int
+
+
+class SummaryQuestion(BaseModel):
+    card_id: int
+    title: str
+    question: str
+    correct_answer: str
+    reexplain: str
+    wrong_count: int
+
+
+class ReviewSummary(BaseModel):
+    title: str
+    total_cards: int
+    wrong_count: int
+    points: list[SummaryPoint]
+    wrong_cards: list[SummaryQuestion]
+
+
 class StudyPoint(BaseModel):
     card_id: int
     title: str

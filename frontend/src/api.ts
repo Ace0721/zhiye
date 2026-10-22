@@ -9,6 +9,7 @@ import type {
   StudyState,
   RevisionNotes,
   RevisionMap,
+  ReviewSummary,
 } from "./types";
 
 let desktopBase: Promise<string> | undefined;
@@ -105,12 +106,9 @@ export const api = {
   wrong: (id: number, signal?: AbortSignal) =>
     request<KnowledgeCard[]>(`/api/decks/${id}/wrong`, { signal }),
   summary: (id: number, signal?: AbortSignal) =>
-    request<{
-      title: string;
-      markdown: string;
-      wrong_count: number;
-      total_cards: number;
-    }>(`/api/decks/${id}/summary`, { signal }),
+    request<ReviewSummary>(`/api/decks/${id}/summary`, { signal }),
+  summaryWord: (id: number) =>
+    request<Blob>(`/api/decks/${id}/summary.docx`, {}, 60000, "blob"),
   settings: () => request<AISettings>("/api/settings"),
   saveSettings: (body: SettingsInput) =>
     request<AISettings>("/api/settings", json(body, "PUT")),

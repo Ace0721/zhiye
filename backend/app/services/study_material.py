@@ -4,6 +4,7 @@ import re
 from io import BytesIO
 
 from docx import Document
+from docx.document import Document as WordDocument
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 from sqlalchemy import func, select
@@ -39,8 +40,8 @@ def document_text(text: str) -> str:
     return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]", "", text)
 
 
-def build_study_docx(material: RevisionNotes) -> bytes:
-    """仅排版已由 AI 压缩的提纲，不能再次拼接知识卡或重复正文。"""
+def create_word_document(title: str, footer: str) -> WordDocument:
+    """复习提纲与错题包使用一致的中文字体、页边距和标题样式。"""
     document = Document()
     section = document.sections[0]
     section.page_width, section.page_height = Inches(8.5), Inches(11)
@@ -58,7 +59,14 @@ def build_study_docx(material: RevisionNotes) -> bytes:
     document.styles["Title"].font.size = Pt(22)
     document.styles["Heading 1"].font.size = Pt(15)
     document.styles["Heading 2"].font.size = Pt(12)
-    document.add_paragraph(document_text(material.title) + " 精简复习资料", "Title")
+    document.add_paragraph(document_text(title), "Title")
+    section.footer.paragraphs[0].text = document_text(footer)
+    return document
+
+
+def build_study_docx(material: RevisionNotes) -> bytes:
+    """仅排版已由 AI 压缩的提纲，不能再次拼接知识卡或重复正文。"""
+    document = create_word_document(material.title + " 精简复习资料", "知页 Zhiye  课件复习资料")
     document.add_paragraph(document_text(material.overview))
     for group in material.sections:
         document.add_heading(document_text(group.heading), level=1)
@@ -68,7 +76,6 @@ def build_study_docx(material: RevisionNotes) -> bytes:
         document.add_heading("易混与边界", level=1)
         for item in material.pitfalls:
             document.add_paragraph(document_text(item), style="List Bullet")
-    section.footer.paragraphs[0].text = "知页 Zhiye  课件复习资料"
     output = BytesIO()
     document.save(output)
     return output.getvalue()

@@ -30,22 +30,6 @@ async fn save_study_docx(filename: String, content: Vec<u8>) -> Result<Option<St
     }).await.map_err(|_| "导出操作未完成".to_string())?
 }
 
-#[tauri::command]
-async fn save_markdown(filename: String, content: String) -> Result<Option<String>, String> {
-    // 路径只能由用户在原生对话框选择，不接受网页传入的任意写入路径。
-    let name = std::path::Path::new(&filename).file_name().and_then(|name| name.to_str()).unwrap_or("zhiye-summary.md").to_string();
-    tauri::async_runtime::spawn_blocking(move || {
-        let selected = rfd::FileDialog::new().add_filter("Markdown", &["md"]).set_file_name(name).save_file();
-        match selected {
-            Some(path) => {
-                std::fs::write(&path, content).map_err(|_| "保存失败，请检查目录权限和磁盘空间".to_string())?;
-                Ok(Some(path.to_string_lossy().to_string()))
-            }
-            None => Ok(None),
-        }
-    }).await.map_err(|_| "导出操作未完成".to_string())?
-}
-
 fn wait_ready(port: u16) -> bool {
     let deadline = Instant::now() + Duration::from_secs(45);
     while Instant::now() < deadline {
@@ -68,7 +52,7 @@ fn main() {
             if let Some(window) = app.get_webview_window("main") { let _ = window.set_focus(); }
         }))
         .plugin(tauri_plugin_shell::init())
-        .invoke_handler(tauri::generate_handler![get_api_port, save_markdown, save_study_docx])
+        .invoke_handler(tauri::generate_handler![get_api_port, save_study_docx])
         .setup(|app| {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
