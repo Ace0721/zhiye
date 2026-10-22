@@ -1,0 +1,32 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      ZHIYE_HOST: 0.0.0.0
+      ZHIYE_PORT: ${ZHIYE_PORT:-${SHUAKE_PORT:-8000}}
+      ZHIYE_DATA_DIR: /data
+      ZHIYE_AI_BASE_URL: ${ZHIYE_AI_BASE_URL:-${SHUAKE_AI_BASE_URL:-https://api.deepseek.com/v1}}
+      ZHIYE_AI_API_KEY: ${ZHIYE_AI_API_KEY:-${SHUAKE_AI_API_KEY:-}}
+      ZHIYE_AI_MODEL: ${ZHIYE_AI_MODEL:-${SHUAKE_AI_MODEL:-deepseek-chat}}
+      ZHIYE_AI_TIMEOUT: ${ZHIYE_AI_TIMEOUT:-${SHUAKE_AI_TIMEOUT:-60}}
+      ZHIYE_AI_CONCURRENCY: ${ZHIYE_AI_CONCURRENCY:-${SHUAKE_AI_CONCURRENCY:-3}}
+      ZHIYE_TASK_TIMEOUT: ${ZHIYE_TASK_TIMEOUT:-${SHUAKE_TASK_TIMEOUT:-600}}
+    volumes:
+      - ${ZHIYE_DATA_DIR:-${SHUAKE_DATA_DIR:-./data}}:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import os,urllib.request; urllib.request.urlopen('http://127.0.0.1:'+os.getenv('ZHIYE_PORT','8000')+'/api/health', timeout=3)"]
+      interval: 5s
+      timeout: 4s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+  frontend:
+    build: ./frontend
+    environment:
+      BACKEND_PORT: ${ZHIYE_PORT:-${SHUAKE_PORT:-8000}}
+    ports:
+      - "127.0.0.1:${ZHIYE_WEB_PORT:-${SHUAKE_WEB_PORT:-8080}}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

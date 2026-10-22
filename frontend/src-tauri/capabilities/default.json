@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "仅允许本地应用窗口调用自定义端口及导出命令",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
