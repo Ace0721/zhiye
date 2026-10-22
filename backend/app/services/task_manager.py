@@ -11,7 +11,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.config import Settings
-from app.models import Card, Deck, Task, utcnow
+from app.models import Card, Deck, DeckSource, Task, utcnow
 from app.schemas import FailedBlock, TaskResponse
 from app.services.ai_client import AIClient, AIConfig, AIError, resolve_ai_config
 from app.services.card_gen import CardGenerator, GenerationResult
@@ -84,12 +84,14 @@ class TaskManager:
         if state is not None:
             self.states[task_id] = state
 
-    def _finish(self, task_id: str, filename: str, result: GenerationResult) -> None:
+    def _finish(self, task_id: str, filename: str, result: GenerationResult, source_text: str = "") -> None:
         """卡片和任务完成状态在同一事务提交，防止产生半成品卡组。"""
         with self.sessions.begin() as session:
             deck = Deck(title=Path(filename).stem, source_filename=filename)
             session.add(deck)
             session.flush()
+            if source_text:
+                session.add(DeckSource(deck_id=deck.id, text=source_text))
             for index, card in enumerate(result.cards):
                 values = card.model_dump(exclude={"options"})
                 session.add(Card(deck_id=deck.id, order_index=index,
@@ -136,7 +138,7 @@ class TaskManager:
                         message += "；" + result.failed_blocks[0].error
                     raise AIError(message)
             # 生成结束后执行一次短事务，中间没有可取消的 await。
-            self._finish(task_id, filename, result)
+            self._finish(task_id, filename, result, "\n\n".join(block.text for block in blocks))
         except TimeoutError:
             self._update(task_id, status="failed", error="整体任务超时，请减少课件大小或调大 ZHIYE_TASK_TIMEOUT")
         except asyncio.CancelledError:

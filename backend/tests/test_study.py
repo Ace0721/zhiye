@@ -8,7 +8,7 @@ from app.config import Settings
 from app.main import create_app
 from app.models import AnswerRecord, Card, Deck
 from app.services.study_material import build_study_docx
-from app.schemas import StudyMaterial, StudyPoint
+from app.schemas import RevisionNotes
 
 
 async def test_study_filters_deduplicates_exports_and_isolates_decks(config: Settings) -> None:
@@ -41,25 +41,16 @@ async def test_study_filters_deduplicates_exports_and_isolates_decks(config: Set
             assert [point["title"] for point in material["points"]] == ["举证责任"]
             assert material["points"][0]["wrong_count"] == 1
             word = await client.get(f"/api/decks/{deck.id}/study.docx")
-            assert word.status_code == 200
-            assert "wordprocessingml.document" in word.headers["content-type"]
-            assert "filename*=UTF-8''" in word.headers["content-disposition"]
-            document = Document(BytesIO(word.content))
-            text = "\n".join(paragraph.text for paragraph in document.paragraphs)
-            assert "重点速记" in text and "知识点简明解释" in text and "我的易错补充" in text
-            assert "借条" in text and "答错 1 次" in text
-            assert "课程学时" not in text and "其他知识" not in text and "四选一题" not in text
-            assert document.paragraphs[0].style.name == "Title"
+            assert word.status_code == 409
             for route in ("study", "study.docx"):
                 assert (await client.get(f"/api/decks/999/{route}")).status_code == 404
-                assert (await client.get(f"/api/decks/{empty.id}/{route}")).status_code == 422
+                assert (await client.get(f"/api/decks/{empty.id}/{route}")).status_code == (422 if route == "study" else 409)
 
 
 def test_word_export_handles_xml_controls_and_no_wrong_answers() -> None:
-    material = StudyMaterial(deck_id=1, title="复习\x00", excluded_count=0, points=[
-        StudyPoint(card_id=1, title="知识", key_point="重点\x01", explanation="解释\x0b正常",
-                   clarification="例子", wrong_count=0)])
+    material = RevisionNotes(title="复习\x00", overview="内容主线", sections=[
+        {"heading": "知识", "bullets": ["解释\x0b正常"]}], pitfalls=[])
     document = Document(BytesIO(build_study_docx(material)))
     text = "\n".join(paragraph.text for paragraph in document.paragraphs)
     assert "解释正常" in text
-    assert "我的易错补充" not in text
+    assert "易混与边界" not in text

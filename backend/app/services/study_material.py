@@ -10,7 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import AnswerRecord, Card, Deck
-from app.schemas import StudyMaterial, StudyPoint
+from app.schemas import RevisionNotes, StudyMaterial, StudyPoint
 from app.services.card_gen import is_course_admin_card
 
 
@@ -39,8 +39,8 @@ def document_text(text: str) -> str:
     return re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff\ufffe\uffff]", "", text)
 
 
-def build_study_docx(material: StudyMaterial) -> bytes:
-    """输出可编辑的 Word：速记清单、简明解释、个人错题补充，不重复选择题。"""
+def build_study_docx(material: RevisionNotes) -> bytes:
+    """仅排版已由 AI 压缩的提纲，不能再次拼接知识卡或重复正文。"""
     document = Document()
     section = document.sections[0]
     section.page_width, section.page_height = Inches(8.5), Inches(11)
@@ -59,24 +59,15 @@ def build_study_docx(material: StudyMaterial) -> bytes:
     document.styles["Heading 1"].font.size = Pt(15)
     document.styles["Heading 2"].font.size = Pt(12)
     document.add_paragraph(document_text(material.title) + " 精简复习资料", "Title")
-    document.add_paragraph(f"本资料整理了课件已提炼的 {len(material.points)} 个知识点，先看速记清单，再查简明解释。"
-                           "课程事务与重复重点已过滤，未作答也可使用。AI 内容请结合原课件核对。")
-    document.add_heading("重点速记", level=1)
-    for point in material.points:
-        paragraph = document.add_paragraph()
-        paragraph.add_run(document_text(point.title) + "：").bold = True
-        paragraph.add_run(document_text(point.key_point))
-    document.add_heading("知识点简明解释", level=1)
-    for index, point in enumerate(material.points, 1):
-        document.add_heading(f"{index} {document_text(point.title)}", level=2)
-        document.add_paragraph(document_text(point.explanation))
-    wrong = sorted((point for point in material.points if point.wrong_count), key=lambda point: -point.wrong_count)
-    if wrong:
-        document.add_heading("我的易错补充", level=1)
-        for point in wrong:
-            paragraph = document.add_paragraph()
-            paragraph.add_run(f"{document_text(point.title)}（答错 {point.wrong_count} 次）：").bold = True
-            paragraph.add_run(document_text(point.clarification))
+    document.add_paragraph(document_text(material.overview))
+    for group in material.sections:
+        document.add_heading(document_text(group.heading), level=1)
+        for bullet in group.bullets:
+            document.add_paragraph(document_text(bullet), style="List Bullet")
+    if material.pitfalls:
+        document.add_heading("易混与边界", level=1)
+        for item in material.pitfalls:
+            document.add_paragraph(document_text(item), style="List Bullet")
     section.footer.paragraphs[0].text = "知页 Zhiye  课件复习资料"
     output = BytesIO()
     document.save(output)

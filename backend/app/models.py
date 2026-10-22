@@ -51,6 +51,26 @@ class AppSetting(Base):
     value: Mapped[str] = mapped_column(Text)
 
 
+class DeckSource(Base):
+    __tablename__ = "deck_sources"
+    deck_id: Mapped[int] = mapped_column(ForeignKey("decks.id"), primary_key=True)
+    text: Mapped[str] = mapped_column(Text)
+
+
+class StudyArtifact(Base):
+    __tablename__ = "study_artifacts"
+    __table_args__ = (UniqueConstraint("deck_id", "kind"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    deck_id: Mapped[int] = mapped_column(ForeignKey("decks.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(10))
+    status: Mapped[str] = mapped_column(String(20), default="queued")
+    progress: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    content_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source_type: Mapped[str] = mapped_column(String(20))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
 class Task(Base):
     __tablename__ = "tasks"
     id: Mapped[str] = mapped_column(String(36), primary_key=True)

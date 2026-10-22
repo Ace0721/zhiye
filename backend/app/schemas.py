@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator, model_validator
 
 NonEmpty = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
@@ -87,6 +87,60 @@ class StudyMaterial(BaseModel):
     title: str
     points: list[StudyPoint]
     excluded_count: int
+
+
+class NotesSection(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    heading: Annotated[NonEmpty, Field(max_length=24)]
+    bullets: Annotated[list[Annotated[NonEmpty, Field(max_length=100)]], Field(min_length=1, max_length=4)]
+
+
+class RevisionNotes(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: Annotated[NonEmpty, Field(max_length=40)]
+    overview: Annotated[NonEmpty, Field(max_length=100)]
+    sections: Annotated[list[NotesSection], Field(min_length=1, max_length=6)]
+    pitfalls: Annotated[list[Annotated[NonEmpty, Field(max_length=80)]], Field(max_length=4)]
+
+    @model_validator(mode="after")
+    def compact(self) -> "RevisionNotes":
+        text = self.title + self.overview + "".join(section.heading + "".join(section.bullets) for section in self.sections) + "".join(self.pitfalls)
+        if len(text) > 1600:
+            raise ValueError("复习提纲超过1600字，必须压缩合并")
+        return self
+
+
+class MapNode(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    label: Annotated[NonEmpty, Field(max_length=28)]
+    relation: Annotated[NonEmpty, Field(max_length=12)]
+    detail: Annotated[NonEmpty, Field(max_length=180)]
+    children: Annotated[list["MapNode"], Field(max_length=6)]
+
+
+class RevisionMap(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    title: Annotated[NonEmpty, Field(max_length=28)]
+    overview: Annotated[NonEmpty, Field(max_length=140)]
+    branches: Annotated[list[MapNode], Field(min_length=1, max_length=6)]
+
+    @model_validator(mode="after")
+    def hierarchy(self) -> "RevisionMap":
+        count = 0
+
+        def visit(nodes: list[MapNode], depth: int) -> None:
+            nonlocal count
+            if depth > 3 and nodes:
+                raise ValueError("导图最多三层分支")
+            if len({node.label for node in nodes}) != len(nodes):
+                raise ValueError("同级主题不能重复")
+            for node in nodes:
+                count += 1
+                visit(node.children, depth + 1)
+        visit(self.branches, 1)
+        if count > 65 or any(not branch.children for branch in self.branches):
+            raise ValueError("导图须按主题归纳下级概念，总节点最多65个，不能平铺标题")
+        return self
 
 
 class SettingsInput(BaseModel):

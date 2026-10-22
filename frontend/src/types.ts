@@ -57,3 +57,28 @@ export interface StudyMaterial {
   points: StudyPoint[];
   excluded_count: number;
 }
+
+export interface RevisionNotes {
+  title: string;
+  overview: string;
+  sections: { heading: string; bullets: string[] }[];
+  pitfalls: string[];
+}
+export interface MapNode {
+  label: string;
+  relation: string;
+  detail: string;
+  children: MapNode[];
+}
+export interface RevisionMap {
+  title: string;
+  overview: string;
+  branches: MapNode[];
+}
+export interface StudyState<T> {
+  status: "idle" | "queued" | "generating" | "completed" | "failed";
+  progress: number;
+  error: string | null;
+  data: T | null;
+  source_type: "course_text" | "knowledge_cards" | null;
+}

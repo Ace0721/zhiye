@@ -1,85 +1,112 @@
-import { useMemo, useRef, useState } from "react";
-import type { StudyPoint } from "../types";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { MapNode, RevisionMap } from "../types";
 
-function lines(text: string, width = 13): string[] {
-  const characters = Array.from(text);
-  return Array.from({ length: Math.min(3, Math.ceil(characters.length / width)) }, (_, i) =>
-    characters.slice(i * width, (i + 1) * width).join("") + (i === 2 && characters.length > width * 3 ? "…" : ""));
+const colors = ["#547c67", "#a77348", "#617ea4", "#9b688a", "#75834c", "#aa685b"];
+type Item = { id: string; node: MapNode; depth: number; branch: number; x: number; y: number; parent?: string; path: string[] };
+
+function wrap(text: string): string[] {
+  const chars = Array.from(text);
+  return [chars.slice(0, 14).join(""), chars.slice(14, 28).join("")].filter(Boolean);
 }
 
-export default function MindMap({ title, points }: { title: string; points: StudyPoint[] }) {
+export default function MindMap({ map }: { map: RevisionMap }) {
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<string>("0");
   const [query, setQuery] = useState("");
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  const [selectedId, setSelectedId] = useState(points[0]?.card_id);
   const [zoom, setZoom] = useState(1);
+  const [width, setWidth] = useState(850);
   const canvas = useRef<HTMLDivElement>(null);
-  const visible = useMemo(() => points.filter(point =>
-    `${point.title} ${point.key_point} ${point.explanation}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())), [points, query]);
-  const selected = visible.find(point => point.card_id === selectedId) ?? visible[0];
-  let cursor = 24;
-  const rows = visible.map(point => {
-    const y = cursor;
-    cursor += expanded.has(point.card_id) ? 158 : 82;
-    return { point, y };
-  });
-  const height = Math.max(220, cursor + 24);
-  const rootY = Math.min(height / 2, 220);
-  function toggle(id: number) {
-    setSelectedId(id);
-    setExpanded(previous => {
-      const next = new Set(previous);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
+  const drag = useRef<{ x: number; y: number; left: number; top: number }>();
+  useEffect(() => {
+    const observer = new ResizeObserver(entries => setWidth(entries[0].contentRect.width));
+    if (canvas.current) observer.observe(canvas.current);
+    return () => observer.disconnect();
+  }, []);
+  const all = useMemo(() => {
+    const items: { id: string; node: MapNode; ancestors: string[]; path: string[] }[] = [];
+    function visit(nodes: MapNode[], prefix: string, ancestors: string[], path: string[]) {
+      nodes.forEach((node, index) => {
+        const id = prefix ? `${prefix}.${index}` : String(index);
+        items.push({ id, node, ancestors, path: [...path, node.label] });
+        visit(node.children, id, [...ancestors, id], [...path, node.label]);
+      });
+    }
+    visit(map.branches, "", [], []);
+    return items;
+  }, [map]);
+  const hits = all.filter(item => `${item.node.label} ${item.node.relation} ${item.node.detail}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const reveal = new Set(expanded);
+  if (query.trim()) hits.forEach(item => item.ancestors.forEach(id => reveal.add(id)));
+  const shown = new Set(query.trim() ? hits.flatMap(item => [...item.ancestors, item.id]) : all.map(item => item.id));
+  const items: Item[] = [];
+  function children(node: MapNode, id: string) {
+    return reveal.has(id) ? node.children.map((child, index) => ({ node: child, id: `${id}.${index}` })).filter(child => shown.has(child.id)) : [];
   }
-  return <section className="mindmap" aria-label="交互式复习思维导图">
+  function span(node: MapNode, id: string): number {
+    const list = children(node, id);
+    return Math.max(90, list.reduce((sum, child) => sum + span(child.node, child.id), 0));
+  }
+  // 左右交替放主题，子树按可见叶子分配高度，父节点对齐子树中线。
+  const sides = [0, 1].map(side => map.branches.map((node, index) => ({ node, index })).filter(item => item.index % 2 === side && shown.has(String(item.index))));
+  sides.forEach((branches, side) => {
+    const direction = side === 0 ? 1 : -1;
+    const total = branches.reduce((sum, branch) => sum + span(branch.node, String(branch.index)) + 30, 0);
+    let top = -total / 2;
+    function layout(node: MapNode, id: string, depth: number, branch: number, center: number, parent?: string, path: string[] = []) {
+      const nextPath = [...path, node.label];
+      items.push({ id, node, depth, branch, x: direction * depth * 350, y: center, parent, path: nextPath });
+      const list = children(node, id);
+      let offset = center - span(node, id) / 2;
+      list.forEach(child => { const height = span(child.node, child.id); layout(child.node, child.id, depth + 1, branch, offset + height / 2, id, nextPath); offset += height; });
+    }
+    branches.forEach(branch => { const id = String(branch.index); const height = span(branch.node, id); layout(branch.node, id, 1, branch.index, top + height / 2); top += height + 30; });
+  });
+  const minX = Math.min(-125, ...items.map(item => item.x - 110)) - 40;
+  const maxX = Math.max(125, ...items.map(item => item.x + 110)) + 40;
+  const minY = Math.min(-50, ...items.map(item => item.y - 35)) - 50;
+  const maxY = Math.max(50, ...items.map(item => item.y + 35)) + 50;
+  const w = maxX - minX, h = maxY - minY;
+  const scale = Math.min(1, width / w) * zoom;
+  const detail = all.find(item => item.id === selected);
+  function pick(item: Item) {
+    setSelected(item.id);
+    setExpanded(previous => { const next = new Set(previous); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; });
+  }
+  return <section className="mindmap semantic-map" aria-label="AI 语义思维导图">
     <div className="mindmap-toolbar">
-      <input aria-label="搜索知识点" placeholder="搜索知识点或解释…" value={query} onChange={event => setQuery(event.target.value)} />
-      <button className="button secondary" onClick={() => setExpanded(new Set(visible.map(point => point.card_id)))}>全部展开</button>
-      <button className="button secondary" onClick={() => setExpanded(new Set())}>全部折叠</button>
-      <button className="button secondary" aria-label="缩小导图" disabled={zoom <= 0.5} onClick={() => setZoom(value => Math.max(0.5, value - 0.15))}>−</button>
-      <button className="button secondary" onClick={() => { setZoom(1); canvas.current?.scrollTo({ left: 0, top: 0 }); }}>重置</button>
-      <button className="button secondary" aria-label="放大导图" disabled={zoom >= 1.6} onClick={() => setZoom(value => Math.min(1.6, value + 0.15))}>＋</button>
+      <input aria-label="搜索概念或关系" placeholder="搜索概念，自动展开所在路径…" value={query} onChange={event => setQuery(event.target.value)} />
+      <button className="button secondary" onClick={() => setExpanded(new Set(all.map(item => item.id)))}>展开全部</button>
+      <button className="button secondary" onClick={() => { setExpanded(new Set()); setQuery(""); }}>收起分支</button>
+      <button className="button secondary" aria-label="缩小" disabled={zoom <= 0.6} onClick={() => setZoom(value => Math.max(0.6, value - 0.2))}>−</button>
+      <button className="button secondary" onClick={() => setZoom(1)}>适应宽度</button>
+      <button className="button secondary" aria-label="放大" disabled={zoom >= 2.8} onClick={() => setZoom(value => Math.min(2.8, value + 0.2))}>＋</button>
     </div>
-    <p className="muted text-sm my-3">点击知识点展开重点并查看解释；可横向、纵向滚动。找到 {visible.length} 个知识点 · {Math.round(zoom * 100)}%</p>
-    <div className="mindmap-layout">
-      <div className="mindmap-canvas" ref={canvas} tabIndex={0} aria-label="导图画布，可滚动">
-        {!visible.length ? <p className="p-6 muted">没有匹配的知识点，请换个关键词。</p> :
-          <svg width={980 * zoom} height={height * zoom} viewBox={`0 0 980 ${height}`} aria-label={`${title} 知识结构`}>
-            {rows.map(({ point, y }) => <g key={`edge-${point.card_id}`} fill="none" stroke="#b5c5b7" strokeWidth={2}>
-              <path d={`M 232 ${rootY} C 280 ${rootY}, 270 ${y + 30}, 312 ${y + 30}`} />
-              {expanded.has(point.card_id) && <>
-                <path d={`M 536 ${y + 30} C 580 ${y + 30}, 570 ${y + 28}, 612 ${y + 28}`} />
-                <path d={`M 536 ${y + 30} C 580 ${y + 30}, 570 ${y + 100}, 612 ${y + 100}`} />
-              </>}
-            </g>)}
-            <rect x={20} y={rootY - 40} width={212} height={80} rx={16} fill="#24463d" />
-            <text x={36} y={rootY - 10} fill="white" fontSize={15}>{lines(title, 12).map((line, index) => <tspan x={36} dy={index ? 20 : 0} key={index}>{line}</tspan>)}</text>
-            {rows.map(({ point, y }) => <g key={point.card_id}>
-              <g role="button" tabIndex={0} aria-label={`${point.title}，${expanded.has(point.card_id) ? "折叠" : "展开"}`} aria-expanded={expanded.has(point.card_id)}
-                onClick={() => toggle(point.card_id)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggle(point.card_id); } }} className="map-node">
-                <rect x={312} y={y} width={224} height={62} rx={12} fill={selected?.card_id === point.card_id ? "#e6eddb" : "#ffffff"} stroke={point.wrong_count ? "#e6653d" : "#91a787"} />
-                <text x={328} y={y + 24} fill="#24463d" fontSize={14}>{lines(point.title).map((line, index) => <tspan x={328} dy={index ? 19 : 0} key={index}>{line}</tspan>)}</text>
-                <text x={516} y={y + 34} fill="#24463d" fontSize={18}>{expanded.has(point.card_id) ? "−" : "+"}</text>
-              </g>
-              {expanded.has(point.card_id) && <>
-                <rect x={612} y={y - 4} width={338} height={66} rx={10} fill="#f0f3e8" />
-                <text x={627} y={y + 17} fontSize={13} fill="#425c3e">{lines(point.key_point, 23).map((line, index) => <tspan x={627} dy={index ? 18 : 0} key={index}>{line}</tspan>)}</text>
-                <g role="button" tabIndex={0} aria-label={`查看${point.title}的解释`} onClick={() => setSelectedId(point.card_id)} onKeyDown={event => { if (event.key === "Enter") setSelectedId(point.card_id); }} className="map-node">
-                  <rect x={612} y={y + 78} width={338} height={44} rx={10} fill="#fff8ed" stroke="#e9dac0" />
-                  <text x={627} y={y + 105} fontSize={13} fill="#6b5437">查看解释{point.wrong_count ? ` · 答错 ${point.wrong_count} 次` : " · 点击知识点查看右侧详情"}</text>
-                </g>
-              </>}
-            </g>)}
-          </svg>}
-      </div>
-      {selected && <aside className="mindmap-detail" aria-live="polite">
-        <span className="eyebrow">当前知识点</span>
-        <h3>{selected.title}</h3>
-        <strong>{selected.key_point}</strong>
-        <p>{selected.explanation}</p>
-        {selected.wrong_count > 0 && <><h4>易错补充 · 答错 {selected.wrong_count} 次</h4><p>{selected.clarification}</p></>}
-      </aside>}
+    <div className="map-legend"><span>主题 → 核心概念 → 条件与应用</span><span>{all.length} 个节点 · 点击展开，拖动画布{query.trim() ? ` · ${hits.length} 项匹配` : ""}</span></div>
+    <div className="mindmap-canvas semantic-canvas" ref={canvas} tabIndex={0} aria-label="导图画布"
+      onPointerDown={event => { if (event.pointerType !== "mouse" || (event.target as Element).closest('[role="button"]')) return; drag.current = { x: event.clientX, y: event.clientY, left: event.currentTarget.scrollLeft, top: event.currentTarget.scrollTop }; event.currentTarget.setPointerCapture(event.pointerId); }}
+      onPointerMove={event => { if (drag.current) { event.currentTarget.scrollLeft = drag.current.left - (event.clientX - drag.current.x); event.currentTarget.scrollTop = drag.current.top - (event.clientY - drag.current.y); } }}
+      onPointerUp={() => { drag.current = undefined; }} onPointerCancel={() => { drag.current = undefined; }}>
+      {query.trim() && !hits.length ? <p className="p-6 muted">没有匹配内容，请换个关键词。</p> : <svg width={w * scale} height={Math.max(400, h * scale)} viewBox={`${minX} ${minY} ${w} ${h}`} style={{ minWidth: w * scale }}>
+        {items.map(item => {
+          const parent = items.find(candidate => candidate.id === item.parent);
+          const fromX = parent?.x ?? 0, fromY = parent?.y ?? 0;
+          const direction = item.x > 0 ? 1 : -1;
+          const startX = fromX + direction * (parent ? 110 : 125), endX = item.x - direction * 110;
+          const middle = (startX + endX) / 2;
+          return <g key={`edge-${item.id}`}><path d={`M ${startX} ${fromY} C ${middle} ${fromY}, ${middle} ${item.y}, ${endX} ${item.y}`} fill="none" stroke={colors[item.branch]} strokeWidth={item.depth === 1 ? 2.5 : 1.6} opacity={0.6} />
+            <text x={middle} y={(fromY + item.y) / 2 - 8} textAnchor="middle" fill={colors[item.branch]} fontSize={11} stroke="#fbfaf6" strokeWidth={4} paintOrder="stroke">{item.node.relation}</text></g>;
+        })}
+        <rect x={-125} y={-44} width={250} height={88} rx={25} fill="#24463d" />
+        <text textAnchor="middle" fill="white" fontSize={17} fontWeight={600}>{wrap(map.title).map((line, index, list) => <tspan key={index} x={0} y={list.length === 1 ? 6 : -6 + index * 25}>{line}</tspan>)}</text>
+        {items.map(item => <g key={item.id} role="button" tabIndex={0} className="map-node" aria-label={item.node.label} aria-expanded={item.node.children.length ? reveal.has(item.id) : undefined}
+          onClick={() => pick(item)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); pick(item); } }}>
+          <rect x={item.x - 110} y={item.y - 32} width={220} height={64} rx={item.depth === 1 ? 18 : 12} fill={item.depth === 1 ? colors[item.branch] : selected === item.id ? "#edf1e5" : "#ffffff"} stroke={selected === item.id ? "#e56a3c" : colors[item.branch]} strokeWidth={selected === item.id ? 2.5 : 1} />
+          <text textAnchor="middle" fill={item.depth === 1 ? "white" : "#263e36"} fontSize={14} fontWeight={item.depth === 1 ? 600 : 400}>{wrap(item.node.label).map((line, index, list) => <tspan key={index} x={item.x} y={item.y + (list.length === 1 ? 5 : -5 + index * 21)}>{line}</tspan>)}</text>
+          {item.node.children.length > 0 && <circle cx={item.x + Math.sign(item.x) * 108} cy={item.y} r={10} fill="white" stroke={colors[item.branch]} />}
+          {item.node.children.length > 0 && <text x={item.x + Math.sign(item.x) * 108} y={item.y + 4} fontSize={13} textAnchor="middle" fill={colors[item.branch]}>{reveal.has(item.id) ? "−" : "+"}</text>}
+        </g>)}
+      </svg>}
     </div>
+    {detail && <aside className="map-inspector" aria-live="polite"><div><span className="eyebrow">{detail.path.join(" / ")}</span><h3>{detail.node.label}</h3></div><p>{detail.node.detail}</p></aside>}
   </section>;
 }

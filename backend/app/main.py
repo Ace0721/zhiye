@@ -13,6 +13,7 @@ from app.config import Settings, settings
 from app.db import Base, create_database
 from app.routers import cards, review, settings as settings_router, study, tasks, upload
 from app.services.task_manager import TaskManager
+from app.services.study_ai import StudyAIManager
 
 
 def create_app(config: Settings | None = None) -> FastAPI:
@@ -24,6 +25,9 @@ def create_app(config: Settings | None = None) -> FastAPI:
         Base.metadata.create_all(engine)
         manager = TaskManager(config, sessions)
         manager.recover()
+        study_manager = StudyAIManager(config, sessions, manager.generator.semaphore)
+        study_manager.recover()
+        application.state.study_manager = study_manager
         application.state.sessions = sessions
         application.state.config = config
         application.state.task_manager = manager
@@ -31,9 +35,10 @@ def create_app(config: Settings | None = None) -> FastAPI:
             yield
         finally:
             await manager.shutdown()
+            await study_manager.shutdown()
             engine.dispose()
 
-    application = FastAPI(title="Zhiye", version="0.2.0", lifespan=lifespan)
+    application = FastAPI(title="Zhiye", version="0.3.0", lifespan=lifespan)
 
     @application.exception_handler(RequestValidationError)
     async def validation_error(_request: Request, _error: RequestValidationError) -> JSONResponse:

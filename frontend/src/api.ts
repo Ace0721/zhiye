@@ -6,6 +6,9 @@ import type {
   SettingsInput,
   TaskState,
   StudyMaterial,
+  StudyState,
+  RevisionNotes,
+  RevisionMap,
 } from "./types";
 
 let desktopBase: Promise<string> | undefined;
@@ -74,6 +77,10 @@ const json = (body: unknown, method = "POST"): RequestInit => ({
   body: JSON.stringify(body),
 });
 export const api = {
+  studyState: (id: number, kind: "notes" | "map", signal?: AbortSignal) =>
+    request<StudyState<RevisionNotes | RevisionMap>>(`/api/decks/${id}/study/${kind}`, { signal }),
+  generateStudy: (id: number, kind: "notes" | "map") =>
+    request<StudyState<RevisionNotes | RevisionMap>>(`/api/decks/${id}/study/${kind}`, { method: "POST" }),
   study: (id: number, signal?: AbortSignal) =>
     request<StudyMaterial>(`/api/decks/${id}/study`, { signal }),
   studyWord: (id: number) =>

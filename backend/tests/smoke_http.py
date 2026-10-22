@@ -54,9 +54,21 @@ class MockHandler(BaseHTTPRequestHandler):
             "options": ["加倍", "减半", "不变", "变为四倍"], "correct_index": 0,
             "reexplain": "推同一辆车，用两倍合力就获得两倍加速度。",
         }
+        prompt = request["messages"][0]["content"]
+        content = json.dumps([card], ensure_ascii=False)
+        if "思维导图" in prompt:
+            content = json.dumps({"title": "牛顿运动规律", "overview": "合力和质量共同决定物体的加速度。", "branches": [
+                {"label": "动力学关系", "relation": "遵循", "detail": "合外力决定加速度。", "children": [
+                    {"label": "F = ma", "relation": "表达为", "detail": "合力等于质量乘加速度，惯性参考系下成立。", "children": []}]}]}, ensure_ascii=False)
+        elif "课程复习资料编辑" in prompt:
+            content = json.dumps({"title": "牛顿第二定律复习", "overview": "理解合力、质量与加速度之间的关系。",
+                "sections": [{"heading": "核心关系", "bullets": ["F = ma；质量一定时，合力加倍，加速度加倍。"]}],
+                "pitfalls": ["公式中的力是合外力。"]}, ensure_ascii=False)
+        elif "学科知识骨架" in prompt:
+            content = "牛顿第二定律：合外力F等于质量m乘加速度a；惯性参考系下适用。"
         data = json.dumps({
             "id": "smoke", "object": "chat.completion", "created": 0, "model": "smoke-model",
-            "choices": [{"index": 0, "message": {"role": "assistant", "content": json.dumps([card], ensure_ascii=False)},
+            "choices": [{"index": 0, "message": {"role": "assistant", "content": content},
                          "finish_reason": "stop"}],
         }, ensure_ascii=False).encode()
         self.send_response(200)
@@ -139,11 +151,20 @@ def main() -> None:
                 assert summary["wrong_count"] == 1
                 material = request(f"/api/decks/{state['deck_id']}/study")
                 assert material["points"]
+                for kind in ("notes", "map"):
+                    request(f"/api/decks/{state['deck_id']}/study/{kind}", "-X", "POST")
+                    for _ in range(150):
+                        generated = request(f"/api/decks/{state['deck_id']}/study/{kind}")
+                        if generated["status"] in {"completed", "failed"}:
+                            break
+                        time.sleep(0.1)
+                    assert generated["status"] == "completed", generated
+                    assert generated["source_type"] == "course_text"
                 exported = subprocess.run([curl, "--fail-with-body", "--silent", "--max-time", "10",
                                            f"http://127.0.0.1:{backend_port}/api/decks/{state['deck_id']}/study.docx"],
                                           capture_output=True, check=True)
                 word = Document(BytesIO(exported.stdout))
-                assert any(paragraph.text == "重点速记" for paragraph in word.paragraphs)
+                assert any(paragraph.text == "核心关系" for paragraph in word.paragraphs)
                 settings = request("/api/settings")
                 assert settings["api_key_configured"] and "api_key" not in settings
                 assert request("/api/settings/test", "-X", "POST")["success"]
