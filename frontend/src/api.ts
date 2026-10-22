@@ -10,6 +10,7 @@ import type {
   RevisionNotes,
   RevisionMap,
   ReviewSummary,
+  OutputKind,
 } from "./types";
 
 let desktopBase: Promise<string> | undefined;
@@ -60,6 +61,7 @@ export async function request<T>(
           : `请求失败（${response.status}），请检查输入后重试`,
       );
     }
+    if (response.status === 204) return undefined as T;
     return (await (responseType === "blob" ? response.blob() : response.json())) as T;
   } catch (error) {
     if (error instanceof TypeError)
@@ -78,6 +80,16 @@ const json = (body: unknown, method = "POST"): RequestInit => ({
   body: JSON.stringify(body),
 });
 export const api = {
+  saveCard: (card: KnowledgeCard) => request<KnowledgeCard>(`/api/cards/${card.id}`, json({
+    title: card.title, plain_explanation: card.plain_explanation, key_point: card.key_point,
+    question: card.question, options: card.options, correct_index: card.correct_index, reexplain: card.reexplain,
+    source_refs: card.source_refs ?? [], revision: card.revision ?? 0,
+  }, "PUT")),
+  deleteCard: (id: number) => request<void>(`/api/cards/${id}`, { method: "DELETE" }),
+  regenerateCard: (card: KnowledgeCard) => request<KnowledgeCard>(`/api/cards/${card.id}/regenerate`, json({ revision: card.revision ?? 0 }), 135000),
+  saveStudy: (id: number, kind: "notes" | "map", data: RevisionNotes | RevisionMap, revision: string) =>
+    request<StudyState<RevisionNotes | RevisionMap>>(`/api/decks/${id}/study/${kind}`, json({ data, revision }, "PUT")),
+  sourcePage: (id: number, page: number, signal?: AbortSignal) => request<{page: number; text: string; source_filename: string}>(`/api/decks/${id}/sources/${page}`, { signal }),
   studyState: (id: number, kind: "notes" | "map", signal?: AbortSignal) =>
     request<StudyState<RevisionNotes | RevisionMap>>(`/api/decks/${id}/study/${kind}`, { signal }),
   generateStudy: (id: number, kind: "notes" | "map") =>
@@ -86,9 +98,10 @@ export const api = {
     request<StudyMaterial>(`/api/decks/${id}/study`, { signal }),
   studyWord: (id: number) =>
     request<Blob>(`/api/decks/${id}/study.docx`, {}, 60000, "blob"),
-  upload(file: File) {
+  upload(file: File, outputs: OutputKind[] = ["cards"]) {
     const body = new FormData();
     body.append("file", file);
+    body.append("outputs", outputs.join(","));
     return request<{ task_id: string }>(
       "/api/upload",
       { method: "POST", body },

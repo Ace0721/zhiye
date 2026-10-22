@@ -11,7 +11,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import Settings, settings
 from app.db import Base, create_database
-from app.routers import cards, review, settings as settings_router, study, tasks, upload
+from app.routers import cards, content, review, settings as settings_router, study, tasks, upload
 from app.services.task_manager import TaskManager
 from app.services.study_ai import StudyAIManager
 
@@ -27,6 +27,7 @@ def create_app(config: Settings | None = None) -> FastAPI:
         manager.recover()
         study_manager = StudyAIManager(config, sessions, manager.generator.semaphore)
         study_manager.recover()
+        manager.study_manager = study_manager
         application.state.study_manager = study_manager
         application.state.sessions = sessions
         application.state.config = config
@@ -38,7 +39,7 @@ def create_app(config: Settings | None = None) -> FastAPI:
             await study_manager.shutdown()
             engine.dispose()
 
-    application = FastAPI(title="Zhiye", version="0.3.3", lifespan=lifespan)
+    application = FastAPI(title="Zhiye", version="0.4.0", lifespan=lifespan)
 
     @application.exception_handler(RequestValidationError)
     async def validation_error(_request: Request, _error: RequestValidationError) -> JSONResponse:
@@ -47,7 +48,7 @@ def create_app(config: Settings | None = None) -> FastAPI:
     application.add_middleware(
         CORSMiddleware,
         allow_origins=["http://localhost:5173", "http://127.0.0.1:5173", "tauri://localhost", "http://tauri.localhost", "https://tauri.localhost"],
-        allow_methods=["GET", "POST", "PUT"],
+        allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Content-Type"],
     )
 
@@ -58,6 +59,7 @@ def create_app(config: Settings | None = None) -> FastAPI:
     application.include_router(upload.router)
     application.include_router(tasks.router)
     application.include_router(cards.router)
+    application.include_router(content.router)
     application.include_router(review.router)
     application.include_router(study.router)
     application.include_router(settings_router.router)

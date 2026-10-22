@@ -13,9 +13,10 @@ export function taskLabel(task: TaskState): string {
     case "parsing":
       return "正在本地解析课件";
     case "generating":
+      if (task.requested_outputs?.some(kind => kind !== "cards")) return `整理所选内容中（${task.done_blocks}/${task.total_blocks} 项处理单元）`;
       return `生成卡片中（${task.done_blocks}/${task.total_blocks} 块）`;
     case "completed":
-      return "知识卡已准备好";
+      return task.requested_outputs?.some(kind => kind !== "cards") ? "所选内容已处理完成" : "知识卡已准备好";
     case "failed":
       return "这次生成未完成";
   }

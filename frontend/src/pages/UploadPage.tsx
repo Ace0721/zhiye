@@ -10,12 +10,13 @@ import {
   X,
 } from "lucide-react";
 import { api } from "../api";
-import type { DeckInfo, TaskState } from "../types";
+import type { DeckInfo, TaskState, OutputKind } from "../types";
 import { networkMessage, taskLabel, validateFile } from "../utils";
 import ProgressBar from "../components/ProgressBar";
 
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
+  const [outputs, setOutputs] = useState<OutputKind[]>(["cards"]);
   const [taskId, setTaskId] = useState(() =>
     sessionStorage.getItem("zhiye-task"),
   );
@@ -77,12 +78,12 @@ export default function UploadPage() {
     sessionStorage.removeItem("zhiye-task");
   }
   async function upload() {
-    if (!file || uploading) return;
+    if (!file || uploading || !outputs.length) return;
     setError("");
     setUploading(true);
     setTask(null);
     try {
-      const result = await api.upload(file);
+      const result = await api.upload(file, outputs);
       sessionStorage.setItem("zhiye-task", result.task_id);
       setTaskId(result.task_id);
     } catch (error) {
@@ -109,11 +110,11 @@ export default function UploadPage() {
             一张一张<span className="accent">刷明白</span>
           </h1>
           <p className="intro-copy">
-            把老师的课件，变成你的知识卡。
+            把老师的课件，变成你的复习资料。
             <br />
-            一句解释、一个重点、一题自测。
+            刷卡自测、精简提纲、逻辑导图。
             <br />
-            通勤十分钟，也能学进去。
+            按需要选择，复习更有方向。
           </p>
           <div className="intro-rule" />
           <div className="flex items-center gap-3 text-sm">
@@ -162,12 +163,18 @@ export default function UploadPage() {
                 aria-label="选择课件"
                 onChange={(event) => choose(event.target.files?.[0])}
               />
+              <fieldset className="output-picker mt-5">
+                <legend>这次想生成什么</legend>
+                {([['cards', '知识卡', '解释与选择题'], ['notes', 'Word 提纲', '精简复习资料'], ['map', '思维导图', '梳理概念关系']] as const).map(([kind, label, description]) =>
+                  <label key={kind} className={outputs.includes(kind) ? "selected" : ""}><input type="checkbox" checked={outputs.includes(kind)} disabled={busy} onChange={event => setOutputs(current => event.target.checked ? [...current, kind] : current.filter(item => item !== kind))} /><span><strong>{label}</strong><small>{description}</small></span></label>)}
+                <p className="muted text-xs mt-2">可多选；只选择提纲或导图时不会生成选择题。每项生成会使用你配置的 API。</p>
+              </fieldset>
               <button
                 className="button primary w-full mt-5"
-                disabled={!file || uploading}
+                disabled={!file || uploading || !outputs.length}
                 onClick={() => void upload()}
               >
-                {uploading ? "正在上传课件…" : "生成我的知识卡"}
+                {uploading ? "正在上传课件…" : "生成所选内容"}
                 <ArrowRight size={18} />
               </button>
             </>
@@ -193,12 +200,12 @@ export default function UploadPage() {
               {task?.status === "completed" && (
                 <>
                   <p className="muted my-5">
-                    成功生成{" "}
-                    <strong className="text-ink">{task.card_count}</strong> 张卡
+                    已保存：{task.generated_outputs?.map(kind => ({cards: `知识卡 ${task.card_count} 张`, notes: 'Word 提纲', map: '思维导图'})[kind]).join('、') || `知识卡 ${task.card_count} 张`}
                     {task.failed_blocks.length > 0 &&
                       `，${task.failed_blocks.length} 块未成功`}
                     。
                   </p>
+                  {Object.entries(task.output_errors ?? {}).map(([kind, message]) => <p className="error-message mb-3 text-sm" key={kind}>{({cards:'知识卡',notes:'Word 提纲',map:'思维导图'} as Record<string,string>)[kind]}未成功：{message}</p>)}
                   {task.failed_blocks.length > 0 && (
                     <details className="text-sm text-left mb-4">
                       <summary>查看未成功的内容</summary>
@@ -209,19 +216,20 @@ export default function UploadPage() {
                       ))}
                     </details>
                   )}
-                  <Link
+                  {task.card_count > 0 && <Link
                     className="button primary w-full"
                     to={`/decks/${task.deck_id}`}
                   >
                     开始学习
                     <ArrowRight size={18} />
-                  </Link>
-                  <Link className="button secondary w-full mt-3" to={`/decks/${task.deck_id}/study`}>Word 复习资料 / 互动导图</Link>
+                  </Link>}
+                  <Link className="button secondary w-full mt-3" to={`/decks/${task.deck_id}/study?tab=${task.generated_outputs?.includes('notes') ? 'notes' : 'map'}`}>查看 Word 提纲 / 思维导图</Link>
                 </>
               )}
               {task?.status === "failed" && (
                 <>
                   <p className="error-message my-4">{task.error}</p>
+                  {task.deck_id && <Link className="text-link block mb-4" to={`/decks/${task.deck_id}/study?tab=${task.requested_outputs?.includes('notes') ? 'notes' : 'map'}`}>查看已保存课件并重试生成</Link>}
                   <button
                     className="button primary w-full"
                     onClick={() => {
@@ -325,14 +333,14 @@ export default function UploadPage() {
               >
                 <FileText size={22} />
                 <div className="min-w-0 flex-1">
-                  <Link to={`/decks/${deck.id}`}><h3 className="truncate">{deck.title}</h3></Link>
+                  <Link to={deck.card_count ? `/decks/${deck.id}` : `/decks/${deck.id}/study?tab=${deck.available_outputs?.includes('notes') ? 'notes' : 'map'}`}><h3 className="truncate">{deck.title}</h3></Link>
                   <p>
-                    {deck.card_count} 张知识卡 ·{" "}
+                    {deck.card_count ? `${deck.card_count} 张知识卡` : deck.available_outputs?.map(kind => ({cards:'知识卡',notes:'Word 提纲',map:'思维导图'})[kind]).join(' / ') || '尚未完成生成'} ·{" "}
                     {new Date(deck.created_at).toLocaleDateString("zh-CN")}
                   </p>
-                  <Link className="text-link text-sm" to={`/decks/${deck.id}/study`}>Word 资料 / 互动导图 →</Link>
+                  <Link className="text-link text-sm" to={`/decks/${deck.id}/study?tab=${deck.available_outputs?.includes('notes') ? 'notes' : 'map'}`}>Word 资料 / 互动导图 →</Link>
                 </div>
-                <Link to={`/decks/${deck.id}`} aria-label={`学习${deck.title}`}><ArrowRight size={17} /></Link>
+                <Link to={deck.card_count ? `/decks/${deck.id}` : `/decks/${deck.id}/study?tab=${deck.available_outputs?.includes('notes') ? 'notes' : 'map'}`} aria-label={`查看${deck.title}`}><ArrowRight size={17} /></Link>
               </div>
             ))}
           </div>

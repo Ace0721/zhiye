@@ -70,6 +70,8 @@ def build_study_docx(material: RevisionNotes) -> bytes:
     document.add_paragraph(document_text(material.overview))
     for group in material.sections:
         document.add_heading(document_text(group.heading), level=1)
+        if group.source_refs:
+            document.add_paragraph("参考来源：" + "、".join(f"第 {page} 页/张" for page in dict.fromkeys(ref.page for ref in group.source_refs)))
         for bullet in group.bullets:
             document.add_paragraph(document_text(bullet), style="List Bullet")
     if material.pitfalls:

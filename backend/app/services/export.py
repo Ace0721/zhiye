@@ -20,10 +20,10 @@ def build_summary(session: Session, deck: Deck) -> ReviewSummary:
     wrong = sorted((card for card in cards if card.id in counts), key=lambda card: (-counts[card.id], card.order_index))
     return ReviewSummary(title=deck.title, total_cards=len(cards), wrong_count=len(wrong),
         points=[SummaryPoint(card_id=card.id, title=card.title, key_point=card.key_point,
-                             wrong_count=counts.get(card.id, 0)) for card in wrong or cards],
+                             wrong_count=counts.get(card.id, 0), source_refs=json.loads(card.provenance.refs_json) if card.provenance else []) for card in wrong or cards],
         wrong_cards=[SummaryQuestion(card_id=card.id, title=card.title, question=card.question,
                      correct_answer=f"{'ABCD'[card.correct_index]}. {json.loads(card.options_json)[card.correct_index]}",
-                     reexplain=card.reexplain, wrong_count=counts[card.id]) for card in wrong])
+                     reexplain=card.reexplain, wrong_count=counts[card.id], source_refs=json.loads(card.provenance.refs_json) if card.provenance else []) for card in wrong])
 
 
 def build_summary_docx(summary: ReviewSummary) -> bytes:
@@ -37,6 +37,8 @@ def build_summary_docx(summary: ReviewSummary) -> bytes:
         paragraph.add_run(document_text(point.title)).bold = True
         frequency = f"（答错 {point.wrong_count} 次）" if point.wrong_count else ""
         paragraph.add_run(f"{frequency}：{document_text(point.key_point)}")
+        if point.source_refs:
+            document.add_paragraph("参考来源：" + "、".join(f"第 {page} 页/张" for page in dict.fromkeys(ref.page for ref in point.source_refs)))
     document.add_heading("错题回顾", level=1)
     for index, card in enumerate(summary.wrong_cards, 1):
         document.add_heading(f"{index} {document_text(card.title)}", level=2)

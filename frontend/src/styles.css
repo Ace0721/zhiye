@@ -941,3 +941,30 @@ button {
   .ai-notes { padding: 24px 20px; }
   .study-generating, .study-empty { padding: 24px; }
 }
+/* 生成选项、内容编辑与来源核对保持和正文相同的阅读宽度。 */
+.output-picker { border: 0; padding: 0; }
+.output-picker legend { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+.output-picker > label { display: inline-flex; align-items: center; gap: 8px; padding: 12px; border: 1px solid #dce2d5; border-radius: 10px; margin: 0 6px 8px 0; cursor: pointer; background: #fff; }
+.output-picker > label.selected { border-color: #77956c; background: #f0f4e8; }
+.output-picker strong, .output-picker small { display: block; }
+.output-picker strong { font-size: 13px; }
+.output-picker small { font-size: 11px; color: #7e8d77; margin-top: 3px; }
+.output-picker input { accent-color: #547c67; }
+.card-actions { display: flex; justify-content: flex-end; gap: 16px; padding: 0 8px 12px; flex-wrap: wrap; }
+.card-actions button { display: inline-flex; gap: 5px; align-items: center; font-size: 12px; color: #728369; }
+.source-refs { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; font-size: 11px; margin: 12px 0; color: #7c8a74; }
+.source-pill { background: #edf1e5; border: 1px solid #d5dfc8; border-radius: 6px; padding: 4px 7px; color: #4f6b40; }
+.content-dialog { width: min(700px, 94vw); max-height: 88dvh; border: 1px solid #d6ddcf; border-radius: 18px; margin: auto; padding: 28px; color: #263e36; background: #fcfbf7; overflow: auto; box-shadow: 0 20px 80px #132f2630; }
+.content-dialog::backdrop { background: #142a2160; }
+.content-dialog > header { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-bottom: 22px; }
+.content-dialog > header h2 { font-size: 22px; font-weight: 600; }
+.content-form { display: grid; gap: 16px; }
+.content-form label { display: grid; gap: 7px; font-size: 13px; font-weight: 500; }
+.content-form input, .content-form textarea, .content-form select { width: 100%; min-width: 0; border: 1px solid #cdd8c3; border-radius: 8px; padding: 10px 12px; background: white; color: #263e36; font: inherit; line-height: 1.7; }
+.content-form textarea { min-height: 100px; resize: vertical; }
+.dialog-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; padding-top: 22px; margin-top: 16px; border-top: 1px solid #e1e6d8; }
+.source-quote { padding: 16px 20px; margin: 18px 0; border-left: 3px solid #8da878; background: #edf2e5; font-size: 15px; line-height: 1.8; }
+.source-page-text { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; font-size: 14px; line-height: 1.9; padding: 16px; background: white; border: 1px solid #e1e6d8; border-radius: 8px; }
+.notes-edit-section { border: 1px solid #dce2d5; border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+.notes-edit-section legend { color: #7a8e6c; padding: 0 6px; font-size: 12px; }
+@media (max-width: 600px) { .content-dialog { padding: 20px 16px; } .output-picker > label { padding: 10px; margin-right: 5px; } }

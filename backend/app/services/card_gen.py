@@ -13,6 +13,7 @@ from pydantic import TypeAdapter, ValidationError
 from app.schemas import FailedBlock, GeneratedCard
 from app.services.ai_client import AIError
 from app.services.parser import TextBlock
+from app.services.citations import extract_pages, verified_refs
 
 CARD_LIST = TypeAdapter(list[GeneratedCard])
 PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "card_gen.txt"
@@ -79,7 +80,10 @@ class CardGenerator:
                 async with self.semaphore:
                     response = await client.complete(prompt, block.text)
                 # 提示词负责语义筛选；窄范围兜底只剔除明确的课程事务题。
-                return [card for card in parse_cards(response) if not is_course_admin_card(card)]
+                cards = [card for card in parse_cards(response) if not is_course_admin_card(card)]
+                for card in cards:
+                    card.source_refs = verified_refs(card.source_refs, extract_pages([block]))
+                return cards
             except AIError as exc:
                 if not exc.retryable or attempt + 1 == attempts:
                     raise

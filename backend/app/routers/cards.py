@@ -3,7 +3,7 @@ import json
 from fastapi import APIRouter, HTTPException, Request
 from sqlalchemy import func, select
 
-from app.models import Card, Deck
+from app.models import Card, Deck, StudyArtifact
 from app.schemas import CardResponse, DeckResponse
 
 router = APIRouter(prefix="/api/decks", tags=["cards"])
@@ -15,6 +15,8 @@ def card_response(card: Card) -> CardResponse:
         title=card.title, plain_explanation=card.plain_explanation, key_point=card.key_point,
         question=card.question, options=json.loads(card.options_json), correct_index=card.correct_index,
         reexplain=card.reexplain, created_at=card.created_at,
+        source_refs=json.loads(card.provenance.refs_json) if card.provenance else [],
+        revision=card.provenance.revision if card.provenance else 0,
     )
 
 
@@ -24,7 +26,11 @@ def get_decks(request: Request) -> list[DeckResponse]:
     with request.app.state.sessions() as session:
         rows = session.execute(select(Deck, func.count(Card.id)).outerjoin(Card).group_by(Deck.id)
                                .order_by(Deck.created_at.desc(), Deck.id.desc())).all()
-        return [DeckResponse(id=deck.id, title=deck.title, created_at=deck.created_at, card_count=count)
+        ready: dict[int, list[str]] = {}
+        for deck_id, kind in session.execute(select(StudyArtifact.deck_id, StudyArtifact.kind).where(StudyArtifact.status == "completed")):
+            ready.setdefault(deck_id, []).append(kind)
+        return [DeckResponse(id=deck.id, title=deck.title, created_at=deck.created_at, card_count=count,
+                             available_outputs=(["cards"] if count else []) + ready.get(deck.id, []))
                 for deck, count in rows]
 
 

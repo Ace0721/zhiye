@@ -1,3 +1,6 @@
+export type OutputKind = "cards" | "notes" | "map";
+export interface SourceRef { page: number; quote: string }
+
 export interface KnowledgeCard {
   id: number;
   deck_id: number;
@@ -10,6 +13,8 @@ export interface KnowledgeCard {
   correct_index: number;
   reexplain: string;
   created_at: string;
+  source_refs: SourceRef[];
+  revision: number;
 }
 export interface TaskState {
   status: "queued" | "parsing" | "generating" | "completed" | "failed";
@@ -20,6 +25,9 @@ export interface TaskState {
   deck_id: number | null;
   card_count: number;
   failed_blocks: { block_index: number; source: string; error: string }[];
+  requested_outputs: OutputKind[];
+  generated_outputs: OutputKind[];
+  output_errors: Partial<Record<OutputKind, string>>;
 }
 export interface AISettings {
   base_url: string;
@@ -41,13 +49,14 @@ export interface DeckInfo {
   title: string;
   card_count: number;
   created_at: string;
+  available_outputs: OutputKind[];
 }
 
 export interface ReviewSummary {
   title: string;
   total_cards: number;
   wrong_count: number;
-  points: { card_id: number; title: string; key_point: string; wrong_count: number }[];
+  points: { card_id: number; title: string; key_point: string; wrong_count: number; source_refs?: SourceRef[] }[];
   wrong_cards: { card_id: number; title: string; question: string; correct_answer: string; reexplain: string; wrong_count: number }[];
 }
 
@@ -69,7 +78,7 @@ export interface StudyMaterial {
 export interface RevisionNotes {
   title: string;
   overview: string;
-  sections: { heading: string; bullets: string[] }[];
+  sections: { heading: string; bullets: string[]; source_refs?: SourceRef[] }[];
   pitfalls: string[];
 }
 export interface MapNode {
@@ -77,6 +86,7 @@ export interface MapNode {
   relation: string;
   detail: string;
   children: MapNode[];
+  source_refs?: SourceRef[];
 }
 export interface RevisionMap {
   title: string;
@@ -89,4 +99,5 @@ export interface StudyState<T> {
   error: string | null;
   data: T | null;
   source_type: "course_text" | "knowledge_cards" | null;
+  revision?: string;
 }

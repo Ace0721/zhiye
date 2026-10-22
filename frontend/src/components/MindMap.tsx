@@ -1,5 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MapNode, RevisionMap } from "../types";
+import Dialog from "./Dialog";
+import SourceRefs from "./SourceRefs";
+import { networkMessage } from "../utils";
 
 const colors = ["#547c67", "#a77348", "#617ea4", "#9b688a", "#75834c", "#aa685b"];
 type Item = { id: string; node: MapNode; depth: number; branch: number; x: number; y: number; parent?: string; path: string[] };
@@ -9,12 +12,16 @@ function wrap(text: string): string[] {
   return [chars.slice(0, 14).join(""), chars.slice(14, 28).join("")].filter(Boolean);
 }
 
-export default function MindMap({ map }: { map: RevisionMap }) {
+export default function MindMap({ map, deckId, onChange }: { map: RevisionMap; deckId: number; onChange: (map: RevisionMap) => Promise<void> }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<string>("0");
   const [query, setQuery] = useState("");
   const [zoom, setZoom] = useState(1);
   const [width, setWidth] = useState(850);
+  const [editing, setEditing] = useState<{id: string; node: MapNode}>();
+  const [saving, setSaving] = useState(false);
+  const [remove, setRemove] = useState(false);
+  const [editError, setEditError] = useState("");
   const canvas = useRef<HTMLDivElement>(null);
   const drag = useRef<{ x: number; y: number; left: number; top: number }>();
   useEffect(() => {
@@ -72,6 +79,25 @@ export default function MindMap({ map }: { map: RevisionMap }) {
     setSelected(item.id);
     setExpanded(previous => { const next = new Set(previous); if (next.has(item.id)) next.delete(item.id); else next.add(item.id); return next; });
   }
+  async function saveNode() {
+    if (!editing) return;
+    setSaving(true); setEditError("");
+    function update(nodes: MapNode[], prefix = ""): MapNode[] {
+      return nodes.flatMap((node,index) => {
+        const id = prefix ? `${prefix}.${index}` : String(index);
+        if (id === editing!.id) return remove ? [] : [editing!.node];
+        const next = {...node,children:update(node.children,id)};
+        if (!prefix && !next.children.length) return [];
+        return [next];
+      });
+    }
+    try {
+      const next = {...map,branches:update(map.branches)};
+      if (!next.branches.length) throw new Error("至少保留一个主题，不能删除整个导图");
+      await onChange(next); setEditing(undefined);
+    } catch(error) { setEditError(networkMessage(error)); }
+    finally { setSaving(false); }
+  }
   return <section className="mindmap semantic-map" aria-label="AI 语义思维导图">
     <div className="mindmap-toolbar">
       <input aria-label="搜索概念或关系" placeholder="搜索概念，自动展开所在路径…" value={query} onChange={event => setQuery(event.target.value)} />
@@ -107,6 +133,17 @@ export default function MindMap({ map }: { map: RevisionMap }) {
         </g>)}
       </svg>}
     </div>
-    {detail && <aside className="map-inspector" aria-live="polite"><div><span className="eyebrow">{detail.path.join(" / ")}</span><h3>{detail.node.label}</h3></div><p>{detail.node.detail}</p></aside>}
+    {detail && <aside className="map-inspector" aria-live="polite"><div><span className="eyebrow">{detail.path.join(" / ")}</span><h3>{detail.node.label}</h3><button className="text-link mt-3" onClick={() => {setEditing({id:detail.id,node:structuredClone(detail.node)});setEditError("");setRemove(false);}}>编辑 / 删除节点</button></div><div><p>{detail.node.detail}</p><SourceRefs deckId={deckId} refs={detail.node.source_refs}/></div></aside>}
+    {editing && <Dialog title={remove ? "确认删除这个分支" : "编辑导图节点"} onClose={() => {if (!saving) setEditing(undefined);}}>
+      <form id="node-edit" className="content-form" onSubmit={event => {event.preventDefault();void saveNode();}}>
+        {remove ? <p className="my-5 leading-7">将移除此节点及其下级节点。删除主题的最后一个概念时，该空主题也会移除；至少需要保留一个主题。</p> : <>
+          <label>节点名<input required maxLength={28} value={editing.node.label} onChange={event => setEditing({...editing,node:{...editing.node,label:event.target.value}})}/></label>
+          <label>与父节点的关系<input required maxLength={12} value={editing.node.relation} onChange={event => setEditing({...editing,node:{...editing.node,relation:event.target.value}})}/></label>
+          <label>解释<textarea required maxLength={180} value={editing.node.detail} onChange={event => setEditing({...editing,node:{...editing.node,detail:event.target.value}})}/></label>
+        </>}
+      </form>
+      {editError && <p className="error-message my-4" role="alert">{editError}</p>}
+      <div className="dialog-actions">{!remove && <button className="button secondary" disabled={saving} onClick={() => setRemove(true)}>删除分支</button>}<button className="button secondary" disabled={saving} onClick={() => setEditing(undefined)}>取消</button><button className="button primary" form="node-edit" disabled={saving}>{saving ? "保存中…" : remove ? "确认删除" : "保存修改"}</button></div>
+    </Dialog>}
   </section>;
 }

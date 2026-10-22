@@ -1,6 +1,7 @@
 import { Lightbulb, RotateCcw } from "lucide-react";
 import type { Answer, KnowledgeCard } from "../types";
 import OptionButton from "./OptionButton";
+import SourceRefs from "./SourceRefs";
 
 export default function Card({
   card,
@@ -24,6 +25,7 @@ export default function Card({
         <span className="tiny-tag">知识卡</span>
       </div>
       <h1 className="card-title">{card.title}</h1>
+      <div className="px-7"><SourceRefs deckId={card.deck_id} refs={card.source_refs}/></div>
       <p className="explanation">{card.plain_explanation}</p>
       <div className="key-point">
         <Lightbulb size={21} className="shrink-0" />

@@ -4,6 +4,7 @@ import { ArrowLeft, Check, Download, RotateCcw } from "lucide-react";
 import { api, isDesktop } from "../api";
 import { networkMessage, safeFilename } from "../utils";
 import type { ReviewSummary } from "../types";
+import SourceRefs from "../components/SourceRefs";
 
 export default function SummaryPage() {
   const { deckId } = useParams();
@@ -119,7 +120,7 @@ export default function SummaryPage() {
           )}
           <section className="study-notes mt-6" aria-label="考前救命包预览">
             <h2>{summary.wrong_count ? "高频易错重点" : "重点速记"}</h2>
-            <ol>{summary.points.map(point => <li key={point.card_id}><strong>{point.title}</strong>{point.wrong_count > 0 && <span className="muted">（答错 {point.wrong_count} 次）</span>}：{point.key_point}</li>)}</ol>
+            <ol>{summary.points.map(point => <li key={point.card_id}><strong>{point.title}</strong>{point.wrong_count > 0 && <span className="muted">（答错 {point.wrong_count} 次）</span>}：{point.key_point}<SourceRefs deckId={Number(deckId)} refs={point.source_refs}/></li>)}</ol>
             <h2>错题回顾</h2>
             {summary.wrong_cards.length ? summary.wrong_cards.map(card => <article key={card.card_id}>
               <h3>{card.title}</h3><p>{card.question}</p><p><strong>正确答案：</strong>{card.correct_answer}</p><p className="muted"><strong>再讲一遍：</strong>{card.reexplain}</p>

@@ -1,27 +1,42 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Download, Sparkles } from "lucide-react";
 import { api, isDesktop } from "../api";
 import MindMap from "../components/MindMap";
 import ProgressBar from "../components/ProgressBar";
 import type { RevisionMap, RevisionNotes, StudyState } from "../types";
 import { networkMessage, safeFilename } from "../utils";
+import SourceRefs from "../components/SourceRefs";
+import StudyEditor from "../components/StudyEditor";
 
 type Kind = "map" | "notes";
 type State = StudyState<RevisionMap | RevisionNotes>;
 
 export default function StudyPage() {
   const { deckId } = useParams();
-  const [tab, setTab] = useState<Kind>("map");
+  const [search] = useSearchParams();
+  const [tab, setTab] = useState<Kind>(search.get("tab") === "notes" ? "notes" : "map");
+  const [editing, setEditing] = useState(false);
   const [states, setStates] = useState<Partial<Record<Kind, State>>>({});
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [retry, setRetry] = useState(0);
   const [saving, setSaving] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [hasCards, setHasCards] = useState(false);
   const state = states[tab];
   const busy = starting || state?.status === "queued" || state?.status === "generating";
-  useEffect(() => { setStates({}); }, [deckId]);
+  async function saveContent(data: RevisionMap | RevisionNotes) {
+    if (!state?.revision) throw new Error("内容版本缺失，请重新载入后编辑");
+    const result = await api.saveStudy(Number(deckId), tab, data, state.revision);
+    setStates(previous => ({...previous,[tab]:result})); setNotice("修改已保存");
+  }
+  useEffect(() => {
+    setStates({}); setHasCards(false);
+    const controller = new AbortController();
+    api.decks(controller.signal).then(decks => setHasCards(decks.some(deck => deck.id === Number(deckId) && deck.card_count > 0))).catch(() => {});
+    return () => controller.abort();
+  }, [deckId]);
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
@@ -78,11 +93,12 @@ export default function StudyPage() {
     <div className="study-tabs mt-8" role="tablist" aria-label="复习方式">
       <button role="tab" aria-selected={tab === "map"} aria-controls="study-result" onClick={() => setTab("map")}>逻辑思维导图</button>
       <button role="tab" aria-selected={tab === "notes"} aria-controls="study-result" onClick={() => setTab("notes")}>AI 精简提纲</button>
-      <Link className="text-link" to={`/decks/${deckId}`}>刷卡自测 →</Link>
+      {hasCards && <Link className="text-link" to={`/decks/${deckId}`}>刷卡自测 →</Link>}
     </div>
     <div className="study-heading"><div><h2>{tab === "map" ? "先看结构，再理解细节" : "只留最该掌握的内容"}</h2>
       <p className="muted text-sm">{tab === "map" ? "按主题分组 · 标明概念关系 · 点击逐层展开" : "合并重复概念 · 保留公式与条件 · 正文最多1600字"}</p></div>
       <div className="flex gap-2 flex-wrap">
+        {state?.status === "completed" && <button className="button secondary" onClick={() => setEditing(true)}>{tab === "notes" ? "编辑提纲" : "编辑导图概述"}</button>}
         {tab === "notes" && state?.status === "completed" && <button className="button secondary" disabled={saving} onClick={() => void download()}><Download size={17} />{saving ? "保存中…" : "下载 Word"}</button>}
         <button className="button primary" disabled={busy} onClick={() => void generate()}><Sparkles size={17} />{busy ? "AI 正在整理…" : state?.data ? "重新生成" : "开始 AI 生成"}</button>
       </div>
@@ -96,9 +112,10 @@ export default function StudyPage() {
     {!state && !error && <p className="muted my-6">正在读取本地记录…</p>}
     {state?.status === "idle" && <div className="study-empty"><span>从零散的知识，到清晰的主线</span><p>{tab === "map" ? "AI 将归纳主题、核心概念及其关系，不再平铺知识卡标题。" : "AI 将筛选和合并内容，生成短提纲，不再把每张卡的解释抄进 Word。"}</p></div>}
     <div id="study-result" role="tabpanel" aria-label={tab === "map" ? "逻辑思维导图" : "AI 精简提纲"}>
-      {state?.status === "completed" && map && <><div className="study-overview"><h2>{map.title}</h2><p>{map.overview}</p></div><MindMap key={`${deckId}-${JSON.stringify(map)}`} map={map} /></>}
-      {state?.status === "completed" && notes && <section className="study-notes ai-notes"><div className="notes-meta">AI 归纳 · {notes.sections.length} 个主题 · {noteLength} 字符</div><h2>{notes.title}</h2><p className="notes-overview">{notes.overview}</p>{notes.sections.map((section, index) => <article key={index}><h3><span>{String(index + 1).padStart(2, "0")}</span>{section.heading}</h3><ul>{section.bullets.map((bullet, i) => <li key={i}>{bullet}</li>)}</ul></article>)}{notes.pitfalls.length > 0 && <article><h3>易混与边界</h3><ul>{notes.pitfalls.map((item, i) => <li key={i}>{item}</li>)}</ul></article>}</section>}
+      {state?.status === "completed" && map && <><div className="study-overview"><h2>{map.title}</h2><p>{map.overview}</p></div><MindMap key={deckId} map={map} deckId={Number(deckId)} onChange={saveContent}/></>}
+      {state?.status === "completed" && notes && <section className="study-notes ai-notes"><div className="notes-meta">AI 归纳 · {notes.sections.length} 个主题 · {noteLength} 字符</div><h2>{notes.title}</h2><p className="notes-overview">{notes.overview}</p>{notes.sections.map((section, index) => <article key={index}><h3><span>{String(index + 1).padStart(2, "0")}</span>{section.heading}</h3><SourceRefs deckId={Number(deckId)} refs={section.source_refs}/><ul>{section.bullets.map((bullet, i) => <li key={i}>{bullet}</li>)}</ul></article>)}{notes.pitfalls.length > 0 && <article><h3>易混与边界</h3><ul>{notes.pitfalls.map((item, i) => <li key={i}>{item}</li>)}</ul></article>}</section>}
     </div>
+    {editing && state?.data && <StudyEditor key={tab} kind={tab} data={state.data} onSave={saveContent} onClose={() => setEditing(false)}/>}
     <p className="muted text-xs my-5">AI 归纳可能遗漏或误解内容，请对照原课件核对公式、前提和结论。</p>
   </div>;
 }

@@ -3,7 +3,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
 
@@ -34,6 +34,14 @@ class Card(Base):
     correct_index: Mapped[int] = mapped_column(Integer)
     reexplain: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    provenance: Mapped["CardSource | None"] = relationship(lazy="selectin", cascade="all, delete-orphan")
+
+
+class CardSource(Base):
+    __tablename__ = "card_sources"
+    card_id: Mapped[int] = mapped_column(ForeignKey("cards.id"), primary_key=True)
+    refs_json: Mapped[str] = mapped_column(Text, default="[]")
+    revision: Mapped[int] = mapped_column(Integer, default=0)
 
 
 class AnswerRecord(Base):
@@ -55,6 +63,21 @@ class DeckSource(Base):
     __tablename__ = "deck_sources"
     deck_id: Mapped[int] = mapped_column(ForeignKey("decks.id"), primary_key=True)
     text: Mapped[str] = mapped_column(Text)
+
+
+class SourcePage(Base):
+    __tablename__ = "source_pages"
+    deck_id: Mapped[int] = mapped_column(ForeignKey("decks.id"), primary_key=True)
+    page_number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text: Mapped[str] = mapped_column(Text)
+
+
+class UploadPlan(Base):
+    __tablename__ = "upload_plans"
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), primary_key=True)
+    requested_json: Mapped[str] = mapped_column(Text, default='["cards"]')
+    generated_json: Mapped[str] = mapped_column(Text, default="[]")
+    errors_json: Mapped[str] = mapped_column(Text, default="{}")
 
 
 class StudyArtifact(Base):

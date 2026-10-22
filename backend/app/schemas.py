@@ -9,6 +9,12 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 NonEmpty = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1)]
 
 
+class SourceRef(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    page: Annotated[int, Field(ge=1)]
+    quote: Annotated[NonEmpty, Field(max_length=180)]
+
+
 class GeneratedCard(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     title: Annotated[NonEmpty, Field(max_length=16)]
@@ -18,6 +24,7 @@ class GeneratedCard(BaseModel):
     options: Annotated[list[NonEmpty], Field(min_length=4, max_length=4)]
     correct_index: Annotated[int, Field(ge=0, le=3)]
     reexplain: NonEmpty
+    source_refs: Annotated[list[SourceRef], Field(max_length=6)] = Field(default_factory=list)
 
     @field_validator("options")
     @classmethod
@@ -32,6 +39,7 @@ class CardResponse(GeneratedCard):
     deck_id: int
     order_index: int
     created_at: datetime
+    revision: int = 0
 
 
 class FailedBlock(BaseModel):
@@ -49,6 +57,9 @@ class TaskResponse(BaseModel):
     deck_id: int | None
     card_count: int
     failed_blocks: list[FailedBlock]
+    requested_outputs: list[str] = Field(default_factory=lambda: ["cards"])
+    generated_outputs: list[str] = Field(default_factory=list)
+    output_errors: dict[str, str] = Field(default_factory=dict)
 
 
 class UploadResponse(BaseModel):
@@ -71,6 +82,7 @@ class DeckResponse(BaseModel):
     title: str
     card_count: int
     created_at: datetime
+    available_outputs: list[str] = Field(default_factory=list)
 
 
 class SummaryPoint(BaseModel):
@@ -78,6 +90,7 @@ class SummaryPoint(BaseModel):
     title: str
     key_point: str
     wrong_count: int
+    source_refs: list[SourceRef] = Field(default_factory=list)
 
 
 class SummaryQuestion(BaseModel):
@@ -87,6 +100,7 @@ class SummaryQuestion(BaseModel):
     correct_answer: str
     reexplain: str
     wrong_count: int
+    source_refs: list[SourceRef] = Field(default_factory=list)
 
 
 class ReviewSummary(BaseModel):
@@ -117,6 +131,7 @@ class NotesSection(BaseModel):
     model_config = ConfigDict(extra="forbid")
     heading: Annotated[NonEmpty, Field(max_length=24)]
     bullets: Annotated[list[Annotated[NonEmpty, Field(max_length=100)]], Field(min_length=1, max_length=4)]
+    source_refs: Annotated[list[SourceRef], Field(max_length=6)] = Field(default_factory=list)
 
 
 class RevisionNotes(BaseModel):
@@ -140,6 +155,7 @@ class MapNode(BaseModel):
     relation: Annotated[NonEmpty, Field(max_length=12)]
     detail: Annotated[NonEmpty, Field(max_length=180)]
     children: Annotated[list["MapNode"], Field(max_length=6)]
+    source_refs: Annotated[list[SourceRef], Field(max_length=6)] = Field(default_factory=list)
 
 
 class RevisionMap(BaseModel):

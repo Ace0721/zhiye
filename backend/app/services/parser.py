@@ -18,6 +18,7 @@ class TextBlock:
     index: int
     source: str
     text: str
+    pages: dict[int, str] | None = None
 
 
 def split_pages(pages: list[tuple[int, str]], max_chars: int = 6000) -> list[TextBlock]:
@@ -27,15 +28,17 @@ def split_pages(pages: list[tuple[int, str]], max_chars: int = 6000) -> list[Tex
     blocks: list[TextBlock] = []
     parts: list[str] = []
     page_numbers: list[int] = []
+    page_parts: dict[int, list[str]] = {}
     size = 0
 
     def flush() -> None:
         nonlocal size
         if parts:
             source = "第 " + ", ".join(map(str, dict.fromkeys(page_numbers))) + " 页/张"
-            blocks.append(TextBlock(len(blocks), source, "\n".join(parts)))
+            blocks.append(TextBlock(len(blocks), source, "\n".join(parts), {page: "\n".join(texts) for page, texts in page_parts.items()}))
             parts.clear()
             page_numbers.clear()
+            page_parts.clear()
             size = 0
 
     for page_number, text in pages:
@@ -51,6 +54,7 @@ def split_pages(pages: list[tuple[int, str]], max_chars: int = 6000) -> list[Tex
                     flush()
                 parts.append(piece)
                 page_numbers.append(page_number)
+                page_parts.setdefault(page_number, []).append(paragraph[offset:offset + limit])
                 size += len(piece) + 1
     flush()
     return blocks

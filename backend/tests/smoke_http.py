@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import re
 import shutil
 import signal
 import socket
@@ -40,6 +41,7 @@ def free_port() -> int:
 
 
 class MockHandler(BaseHTTPRequestHandler):
+    calls: list[str] = []
     def log_message(self, format: str, *args: Any) -> None:
         pass
 
@@ -48,21 +50,25 @@ class MockHandler(BaseHTTPRequestHandler):
         assert self.path == "/v1/chat/completions"
         assert request["model"] == "smoke-model"
         time.sleep(0.1)
+        marker = re.search(r"\[第 (\d+) 页/张\]", request["messages"][-1]["content"])
+        refs = [{"page":int(marker.group(1)),"quote":"Newton second law F = ma; force equals mass times acceleration."}] if marker else []
         card = {
             "title": "牛顿第二定律", "plain_explanation": "力越大，加速度越大。质量越大，越难加速。",
             "key_point": "合力等于质量乘加速度", "question": "质量一定时合力加倍，加速度如何变化？",
             "options": ["加倍", "减半", "不变", "变为四倍"], "correct_index": 0,
             "reexplain": "推同一辆车，用两倍合力就获得两倍加速度。",
+            "source_refs": refs,
         }
         prompt = request["messages"][0]["content"]
+        self.calls.append("map" if "思维导图" in prompt else "notes" if "课程复习资料编辑" in prompt else "reduce" if "学科知识骨架" in prompt else "cards")
         content = json.dumps([card], ensure_ascii=False)
         if "思维导图" in prompt:
             content = json.dumps({"title": "牛顿运动规律", "overview": "合力和质量共同决定物体的加速度。", "branches": [
-                {"label": "动力学关系", "relation": "遵循", "detail": "合外力决定加速度。", "children": [
-                    {"label": "F = ma", "relation": "表达为", "detail": "合力等于质量乘加速度，惯性参考系下成立。", "children": []}]}]}, ensure_ascii=False)
+                {"label": "动力学关系", "relation": "遵循", "detail": "合外力决定加速度。", "source_refs":refs, "children": [
+                    {"label": "F = ma", "relation": "表达为", "detail": "合力等于质量乘加速度，惯性参考系下成立。", "children": [], "source_refs":refs}]}]}, ensure_ascii=False)
         elif "课程复习资料编辑" in prompt:
             content = json.dumps({"title": "牛顿第二定律复习", "overview": "理解合力、质量与加速度之间的关系。",
-                "sections": [{"heading": "核心关系", "bullets": ["F = ma；质量一定时，合力加倍，加速度加倍。"]}],
+                "sections": [{"heading": "核心关系", "bullets": ["F = ma；质量一定时，合力加倍，加速度加倍。"],"source_refs":refs}],
                 "pitfalls": ["公式中的力是合外力。"]}, ensure_ascii=False)
         elif "学科知识骨架" in prompt:
             content = "牛顿第二定律：合外力F等于质量m乘加速度a；惯性参考系下适用。"
@@ -106,9 +112,11 @@ def main() -> None:
                        ZHIYE_AI_API_KEY="smoke-test-placeholder", ZHIYE_AI_MODEL="smoke-model",
                        ZHIYE_AI_TIMEOUT="10", ZHIYE_AI_CONCURRENCY="3", ZHIYE_TASK_TIMEOUT="30")
             command = [str(args.binary.resolve())] if args.binary else [sys.executable, "-m", "app.main"]
+            error_path = root / "backend.log"
+            error_stream = error_path.open("wb")
             process = subprocess.Popen(command,
                                        cwd=Path(__file__).resolve().parents[1], env=env,
-                                       stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                                       stdout=subprocess.DEVNULL, stderr=error_stream,
                                        start_new_session=os.name != "nt")
 
             def request(endpoint: str, *arguments: str) -> Any:
@@ -142,6 +150,9 @@ def main() -> None:
                 assert state["done_blocks"] == state["total_blocks"] >= 3
                 assert len(cards) == state["card_count"] > 0
                 assert all(card["correct_index"] == 0 for card in cards)
+                assert cards[0]["source_refs"]
+                source = request(f"/api/decks/{state['deck_id']}/sources/{cards[0]['source_refs'][0]['page']}")
+                assert "Newton second law" in source["text"]
                 answer = request(f"/api/cards/{cards[0]['id']}/answer", "-H", "Content-Type: application/json", "-d", '{"selected_index":1}')
                 assert answer["is_correct"] is False
                 wrong = request(f"/api/decks/{state['deck_id']}/wrong")
@@ -173,9 +184,23 @@ def main() -> None:
                 settings = request("/api/settings")
                 assert settings["api_key_configured"] and "api_key" not in settings
                 assert request("/api/settings/test", "-X", "POST")["success"]
+                prior_card_calls = MockHandler.calls.count("cards")
+                selected = request("/api/upload", "-F", f"file=@{path}", "-F", "outputs=notes,map")
+                for _ in range(150):
+                    selected_state = request(f"/api/tasks/{selected['task_id']}")
+                    if selected_state["status"] in {"completed", "failed"}:
+                        break
+                    time.sleep(0.1)
+                assert selected_state["status"] == "completed", selected_state
+                assert selected_state["generated_outputs"] == ["notes", "map"]
+                assert selected_state["card_count"] == 0 and MockHandler.calls.count("cards") == prior_card_calls
+                editable = {key: value for key, value in cards[0].items() if key not in {"id","deck_id","order_index","created_at"}}
+                editable["title"] = "手动修订的标题"
+                changed = request(f"/api/cards/{cards[0]['id']}", "-X", "PUT", "-H", "Content-Type: application/json", "-d", json.dumps(editable,ensure_ascii=False))
+                assert changed["title"] == editable["title"] and changed["revision"] == 1
                 print(json.dumps({"result": "PASS", "pages": 20, "blocks": state["total_blocks"],
                                   "cards": len(cards), "states": states,
-                                  "frozen_binary": bool(args.binary), "review_export_settings": "PASS", "study_word": "PASS",
+                                  "frozen_binary": bool(args.binary), "review_export_settings": "PASS", "study_word": "PASS", "selection_edit_sources": "PASS",
                                   "elapsed_seconds": round(time.monotonic() - started, 2),
                                   "api": "local mock; no cloud performance claim"}))
             finally:
@@ -190,6 +215,10 @@ def main() -> None:
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.communicate(timeout=5)
+                error_stream.close()
+                if sys.exc_info()[0] is not None:
+                    # 仅用于本脚本的合成课件和占位密钥验收；后台日志不能堵住无人消费的 PIPE。
+                    sys.stderr.write(error_path.read_text(encoding="utf-8", errors="replace")[-4000:])
     finally:
         mock.shutdown()
         mock.server_close()

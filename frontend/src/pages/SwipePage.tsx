@@ -11,6 +11,8 @@ import type { Answer, KnowledgeCard } from "../types";
 import { networkMessage } from "../utils";
 import Card from "../components/Card";
 import ProgressBar from "../components/ProgressBar";
+import CardActions from "../components/CardActions";
+import { removeQueuedCard, replaceQueuedCard } from "../reviewQueue";
 
 export default function SwipePage() {
   const { deckId } = useParams();
@@ -22,6 +24,7 @@ export default function SwipePage() {
   const [index, setIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, Answer>>({});
   const [pending, setPending] = useState(false);
+  const [contentBusy, setContentBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
@@ -55,15 +58,15 @@ export default function SwipePage() {
   }, [index]);
 
   function next() {
-    if (pending || !answers[index]) return;
+    if (pending || contentBusy || !answers[index]) return;
     if (index + 1 < queue.length) setIndex((value) => value + 1);
     else navigate(`/decks/${deckId}/summary`);
   }
   function previous() {
-    if (!pending) setIndex((value) => Math.max(0, value - 1));
+    if (!pending && !contentBusy) setIndex((value) => Math.max(0, value - 1));
   }
   async function answer(selected: number) {
-    if (requestLock.current || answers[index]) return;
+    if (requestLock.current || contentBusy || answers[index]) return;
     requestLock.current = true;
     setPending(true);
     setError("");
@@ -78,6 +81,15 @@ export default function SwipePage() {
       setPending(false);
       requestLock.current = false;
     }
+  }
+  function changed(card: KnowledgeCard) {
+    const result = replaceQueuedCard(queue,answers,card);
+    setAnswers(result.answers); setQueue(result.queue);
+  }
+  function removed() {
+    const result = removeQueuedCard(queue,answers,index);
+    setQueue(result.queue); setAnswers(result.answers); setIndex(result.index);
+    setInitialCount(value => Math.max(0, value - 1));
   }
   if (loading)
     return (
@@ -147,6 +159,7 @@ export default function SwipePage() {
             label={`第 ${index + 1} / ${queue.length} 张${index >= initialCount ? " · 回炉复习" : ""}`}
           />
         </div>
+        <CardActions key={queue[index].id} card={queue[index]} disabled={pending || contentBusy} onChanged={changed} onDeleted={removed} onBusy={setContentBusy}/>
         <div
           className="card-scroll"
           ref={scroll}
@@ -161,7 +174,7 @@ export default function SwipePage() {
             };
           }}
           onTouchEnd={(event) => {
-            if (!touch.current || pending) return;
+            if (!touch.current || pending || contentBusy) return;
             const delta = event.changedTouches[0].clientY - touch.current.y;
             if (delta < -100 && touch.current.atBottom) next();
             if (delta > 100 && touch.current.atTop) previous();
@@ -172,7 +185,7 @@ export default function SwipePage() {
             key={index}
             card={queue[index]}
             answer={answers[index]}
-            pending={pending}
+            pending={pending || contentBusy}
             onAnswer={(selected) => void answer(selected)}
             review={wrongOnly || index >= initialCount}
           />
@@ -186,7 +199,7 @@ export default function SwipePage() {
           <button
             className="button secondary"
             onClick={previous}
-            disabled={index === 0 || pending}
+            disabled={index === 0 || pending || contentBusy}
           >
             <ArrowUp size={17} />
             上一张
@@ -195,7 +208,7 @@ export default function SwipePage() {
           <button
             className="button primary"
             onClick={next}
-            disabled={!answers[index] || pending}
+            disabled={!answers[index] || pending || contentBusy}
           >
             {index + 1 === queue.length ? "完成学习" : "下一张"}
             <ArrowDown size={17} />

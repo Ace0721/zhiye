@@ -12,11 +12,11 @@
 
 ## Word 复习资料和互动思维导图
 
-上传课件生成知识点后，点击课件旁的 **Word 资料 / 互动导图**，不用先完成刷题。
+上传时可勾选 **知识卡 / Word 资料 / 互动导图**，单选或多选均可；只选资料或导图时不会生成选择题。之后也可从课件工作台补充生成其他内容，不用先完成刷题。
 
 - **AI 精简提纲**：使用独立提示词调用配置的 API，合并重复概念，按最多6个主题提炼核心结论、公式条件与易混区别，目标800～1200字、硬上限1600字符，不再拼接卡片或重复解释。生成后可预览和下载可编辑的 `.docx`。
 - **逻辑思维导图**：独立调用 API 归纳「主题 → 核心概念 → 条件与应用」，边上标明实际父子关系。中心向两侧展开，主题独立配色，支持搜索自动展开路径、缩放、折叠、拖动画布和详情查看。
-- 点击「开始 AI 生成」才调用云端 API，可能产生厂商费用；两种内容分别保存到 SQLite，打开缓存与下载 Word 不再次调用。重新生成会替换对应结果。任务进度持久化，重启会标记未完成任务失败并允许重试。
+- 上传时按勾选内容调用云端 API，工作台也可点击「开始 AI 生成」补充内容，可能产生厂商费用；两种内容分别保存到 SQLite，打开缓存与下载 Word 不再次调用。重新生成会替换对应结果。任务进度持久化，重启会标记未完成任务失败并允许重试。
 - 新上传课件会将解析正文保留在本地 SQLite，用于独立整理；旧课件没有正文时会明确提示以已有知识点为资料，也可重新上传。长正文分批归纳后再整合，不直接截断末尾。原始文件仍在解析后删除。
 
 ![语义导图界面示例](docs/screenshots/semantic-map.png)
@@ -35,6 +35,19 @@
 </details>
 
 > 30 秒 GIF 占位：后续在 `docs/demo.gif` 添加「上传 → 真实进度 → 答错回炉 → 导出」录屏。当前截图来自本地模拟 AI 的验收环境，示例不代表真实模型的质量或速度。
+
+## 修改内容与核对来源
+
+- 知识卡可编辑、删除或仅重新生成当前一张。手动编辑不调用 API，重新生成需要 API；题目、选项或正确答案变化时会清除这张卡的旧答题记录。
+- Word 精简提纲可修改标题、主题和要点；导图可修改节点名称、关系和说明，也可删除节点。修改保存到本地，后续下载 Word 使用新内容。
+- 新生成的卡片、提纲和导图可显示「第 N 页/张」来源按钮，打开原文摘录与本地保存的页面文字。服务端仅保留页码存在且引文可在原文匹配的引用；没有可靠引用时不猜页码。引用存在不等于 AI 结论一定正确。
+- 旧卡组可继续使用；旧数据缺少来源时需要重新上传才能补齐。来源显示的是 PDF 物理页码或 PPT 幻灯片顺序，暂不提供原始版面预览。
+- 编辑使用版本检查；重新生成期间有人手动修改，不会用稍后返回的 AI 结果覆盖修改。
+
+![选择生成内容](docs/screenshots/output-selection.png)
+![核对课件来源](docs/screenshots/source-review.png)
+
+上述截图使用本地模拟 API 的示例数据，仅展示功能。
 
 ## 数据去向
 
@@ -174,7 +187,7 @@ AI 配置优先级为 **AppSetting > 环境变量 > 默认值**，数据库使�
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | GET | `/api/health` | 健康检查 |
-| POST | `/api/upload` | multipart `file`，返回 `202 {task_id}` |
+| POST | `/api/upload` | multipart `file` + 可选 `outputs=cards,notes,map`（默认 cards），返回 `202 {task_id}` |
 | GET | `/api/tasks/{task_id}` | 状态、进度、失败详情和 deck_id |
 | GET | `/api/decks` | 本机卡组列表及数量 |
 | GET | `/api/decks/{deck_id}/cards` | 按 order_index 升序，返回 options 数组 |
@@ -185,6 +198,18 @@ AI 配置优先级为 **AppSetting > 环境变量 > 默认值**，数据库使�
 | GET | `/api/settings` | `{base_url, model, api_key_configured}` |
 | PUT | `/api/settings` | `{base_url, api_key?, model}` |
 | POST | `/api/settings/test` | 可选当前配置 body；返回 success、error_type、message |
+
+编辑与来源接口：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| PUT | `/api/cards/{card_id}` | 完整卡片字段 + `revision`，手动修改 |
+| DELETE | `/api/cards/{card_id}` | 删除卡片及其答题记录 |
+| POST | `/api/cards/{card_id}/regenerate` | `{revision}`，仅重新生成一张卡 |
+| PUT | `/api/decks/{deck_id}/study/{notes或map}` | `{data, revision}`，保存手动修改 |
+| GET | `/api/decks/{deck_id}/sources/{page_number}` | 本地页文字、页码与原文件名 |
+
+卡片与整理结果响应含 `revision`，保存时原样回传；版本过期返回 409。任务响应另外含 `requested_outputs`、`generated_outputs`、`output_errors`，部分内容失败仍能查看成功结果。多输出任务的 `total_blocks` 是卡片文本块数加每种整理输出一个进度单元。
 
 任务响应示例：
 
@@ -242,11 +267,11 @@ macOS 最后一条改为 `npm run tauri build -- --bundles dmg`。构建脚本�
 推送本仓库到自己的 GitHub 仓库后：
 
 ```sh
-git tag v0.3.0
-git push origin v0.3.0
+git tag v0.4.0
+git push origin v0.4.0
 ```
 
-`release.yml` 分别测试、构建 Windows、macOS ARM64 和 Intel，全部成功后合并产物、创建 Release。手动运行 workflow 只上传 Actions artifacts。版本为 `0.1.0`；下一次发布同步更新 package.json、Cargo.toml、tauri.conf.json。
+`release.yml` 分别测试、构建 Windows、macOS ARM64 和 Intel，全部成功后合并产物、创建 Release。手动运行 workflow 只上传 Actions artifacts。当前源码版本为 `0.4.0`；下一次发布同步更新 package.json、package-lock.json、Cargo.toml、tauri.conf.json 和后端版本。
 
 需允许 Actions 写 Contents。签名证书和 API Key 均不入库。项目不含自动更新服务。
 
