@@ -90,7 +90,7 @@ export default function SettingsPage() {
     <div className="settings-page">
       <span className="eyebrow">BRING YOUR OWN AI</span>
       <h1 className="page-title">
-        你的 AI，你来选<span className="accent">。</span>
+        你的 AI，你来选
       </h1>
       <p className="page-subtitle">
         连接任意 OpenAI 兼容云端服务。配置保存在这台电脑，密钥不会随应用分发。

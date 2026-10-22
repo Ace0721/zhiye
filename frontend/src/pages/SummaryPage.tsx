@@ -58,7 +58,7 @@ export default function SummaryPage() {
       </Link>
       <span className="eyebrow block mt-8">YOUR LAST-MINUTE LIFELINE</span>
       <h1 className="page-title">
-        考前救命包<span className="accent">。</span>
+        考前救命包
       </h1>
       <p className="page-subtitle">
         根据你的答题记录，按答错次数整理薄弱点和错题解释，可直接下载 Word。无需再次调用 AI。

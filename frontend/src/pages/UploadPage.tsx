@@ -106,7 +106,7 @@ export default function UploadPage() {
           <h1>
             课件太厚？
             <br />
-            一张一张<span className="accent">刷明白。</span>
+            一张一张<span className="accent">刷明白</span>
           </h1>
           <p className="intro-copy">
             把老师的课件，变成你的知识卡。

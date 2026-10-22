@@ -73,7 +73,7 @@ export default function StudyPage() {
   return <div className="study-page">
     <Link className="back-link" to="/"><ArrowLeft size={16} />我的课件</Link>
     <span className="eyebrow block mt-8">CONNECT IDEAS. KEEP THE ESSENTIALS.</span>
-    <h1 className="page-title">把知识，串起来<span className="accent">。</span></h1>
+    <h1 className="page-title">把知识，串起来</h1>
     <p className="page-subtitle">让 AI 梳理概念关系，压缩复习主线。每种内容独立生成，保存在本机，随时回看。</p>
     <div className="study-tabs mt-8" role="tablist" aria-label="复习方式">
       <button role="tab" aria-selected={tab === "map"} aria-controls="study-result" onClick={() => setTab("map")}>逻辑思维导图</button>
