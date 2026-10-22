@@ -44,6 +44,8 @@
 
 ## v0.5.0 增量验收
 
+- GitHub Actions 已构建 Windows MSI 与 Apple Silicon DMG。Windows构建ZIP下载后SHA256与GitHub artifact digest一致：`34ce606df5bde608fcfa70cc6fa67c9bf5ab3cd9318f53856bb03dcaa67c4f37`；MSI已复制到本机工作目录。本次未运行完整安装向导，单文件后端独立验收如下。
+
 - 后端80项、前端8项测试通过，TypeScript与生产构建通过；PyInstaller单文件EXE通过20页合成PDF完整HTTP验收，包括学习现场恢复与首页统计接口。
 - 浏览器另用20页合成PDF完成上传、三张模拟卡自测、完成学习进入救命包，再次打开显示本轮已完成及重新学习入口。
 - 学习现场覆盖刷新与服务重启恢复、普通/错题模式隔离、重复提交版本冲突不重复落答案、完成与重新学习、修改题目失效及删除卡片后修复队列。统计覆盖日内去重、UTC与北京时间跨日边界、零卡片资料、持久化标签。
