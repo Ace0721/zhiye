@@ -17,7 +17,8 @@
 | v0.3.0 界面 | 通过 | 使用人工构造的结构化示例检查两侧导图、展开、按关系搜索自动展开父路径、精简提纲预览与下载；[导图截图](screenshots/semantic-map.png)、[提纲截图](screenshots/ai-notes.png)是界面验收数据，不是一次真实AI输出 |
 | v0.3.0 发布 | 通过 | [Release v0.3.0](https://github.com/Ace0721/zhiye/releases/tag/v0.3.0) 的 Windows x64 MSI 与两种 macOS DMG 均已公开发布；下载的 Windows 构建 ZIP、MSI 的 SHA256 分别与 GitHub artifact digest、Release asset digest 一致，MSI 解包成功 |
 | v0.3.0 包内后端 | 通过 | 使用发布 MSI 中的 zhiye-backend.exe，通过20页合成课件上传、两次独立复习生成、真实进度查询及 Word 下载/重新打开；云端由本地模拟接口替代，真实模型的内容质量尚待课件实测 |
-| v0.3.1 救命包 Word | 通过源码验证 | 页面已移除 Markdown 下载/复制，改为结构化预览和 `.docx` 下载；浏览器点击下载正常，文档重新打开后包含按错题次数排序的重点、正确答案和补充解释，无错题时含全课重点速记，不调用 AI |
+| v0.3.1 救命包 Word | 源码及本机单文件通过 | 页面已移除 Markdown 下载/复制，改为结构化预览和 `.docx` 下载；浏览器点击下载正常，本机单文件后端通过20页合成课件完整HTTP验收，错题Word重新打开后包含按次数排序的重点、正确答案和补充解释；无错题时含全课重点速记，不调用AI |
+| v0.3.1 Windows 安装包 | 构建成功并已下载 | GitHub Actions 已生成 MSI，下载的构建ZIP SHA256与GitHub artifact digest一致；文件已放到本机工作目录。本次未执行完整安装向导和已发布包的桌面实测 |
 | 手机宽度 | 通过 | 390 × 844，知识卡可滚动、按钮可见，documentWidth = viewport = 390，无横向溢出 |
 | 断线提示 | 通过 | 停止本地后端后刷新刷卡页，显示“连接中断，请检查网络和后端服务，然后重试”，保留重试和返回入口，无白屏 |
 | Docker 构建 | 通过 | Python 3.11 / Node 22 / Nginx 多阶段镜像构建成功；初次 Docker Hub 不可达后，通过官方镜像缓存预拉取 |
