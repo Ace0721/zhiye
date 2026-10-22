@@ -10,6 +10,19 @@
 
 「考前救命包」根据个人答题记录按错误次数整理薄弱点、错题正确答案和补充解释，直接下载可编辑的 `.docx`，不额外调用 AI；没有错题时提供全课重点速记。页面提供正常排版预览，无需使用 Markdown。
 
+## 学习工作台与课件库
+
+- 首页显示继续学习、课件总数、已学知识点、历史错题与最近7天学习记录，数据来自本机答题记录；已学按答过的知识点去重，不表示已经掌握。历史错题包含后来答对的卡片，和错题本口径一致。
+- 刷卡位置、每次已选答案、错题回炉队列和本轮完成状态保存到 SQLite。刷新页面、关闭应用或重启后都能继续；普通学习和错题复习分别保存现场。完成后可明确选择「重新学习」，历史答题记录保留。
+- 答题和学习现场在同一事务保存。网络断开时显示错误与重新载入入口，已提交成功的答案不会因重复请求再次计数；多个窗口进度冲突会要求重新载入。
+- 课件库支持标题、原文件名、标签搜索，以及最近学习、最新上传、名称、学习进度排序；可筛选学习中、有错题、有Word、有导图。标签存本机，最多6个，每个16字。
+- 旧版本的答题记录会纳入首页统计，但无法推断此前停在哪张卡；升级后开始的新一轮学习才保存完整现场。卡片删除后自动修复队列，题目修改后重置对应现场答案，标题或解释润色保留答案。
+
+![学习工作台界面示例](docs/screenshots/learning-dashboard.png)
+![课件库界面示例](docs/screenshots/course-library.png)
+
+以上使用独立验收数据库与示例学习记录，不是用户真实课件或学习数据。
+
 ## Word 复习资料和互动思维导图
 
 上传时可勾选 **知识卡 / Word 资料 / 互动导图**，单选或多选均可；只选资料或导图时不会生成选择题。之后也可从课件工作台补充生成其他内容，不用先完成刷题。
@@ -83,7 +96,7 @@ docker compose down
 
 发布者推送 `v*` 标签后，GitHub Actions 会在各平台构建安装包并上传到仓库 Releases。下载对应系统和架构的包，安装后在 **AI 设置**自行填写密钥。无需预装 Python 或 Node；Windows 缺少 WebView2 时安装器会自动下载运行时。
 
-在 **[Releases 下载页](https://github.com/Ace0721/zhiye/releases)** 选择最新已发布版本，当前源码版本为 v0.4.0，实测状态见 [验收记录](docs/verification.md)。未签名包可能受到系统提示，正式分发可在 CI 增加平台签名与 macOS 公证。
+在 **[Releases 下载页](https://github.com/Ace0721/zhiye/releases)** 选择最新已发布版本，当前源码版本为 v0.5.0，实测状态见 [验收记录](docs/verification.md)。未签名包可能受到系统提示，正式分发可在 CI 增加平台签名与 macOS 公证。
 
 | 系统 | 安装包 |
 | --- | --- |
@@ -199,6 +212,18 @@ AI 配置优先级为 **AppSetting > 环境变量 > 默认值**，数据库使�
 | PUT | `/api/settings` | `{base_url, api_key?, model}` |
 | POST | `/api/settings/test` | 可选当前配置 body；返回 success、error_type、message |
 
+学习与课件库接口：
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| GET | `/api/library?offset_minutes=480` | 课件、标签、学习概览、按本地时区的7日记录及继续学习入口 |
+| PUT | `/api/decks/{deck_id}/tags` | `{tags: []}` 保存课件标签 |
+| POST | `/api/decks/{deck_id}/session` | `{mode: "all"或"wrong", restart: false}` 创建或恢复现场 |
+| PUT | `/api/decks/{deck_id}/session/{mode}` | `{revision, index, completed?}` 保存位置或完成一轮 |
+| POST | `/api/decks/{deck_id}/session/{mode}/answer` | `{revision, index, selected_index}` 原子保存答案和回炉队列 |
+
+学习接口返回 `queue`、`answers`、`index`、`initial_count`、`completed`、`revision`。旧版单卡答题接口保留兼容；新版刷卡使用学习现场接口，避免重复提交。
+
 编辑与来源接口：
 
 | 方法 | 路径 | 说明 |
@@ -267,11 +292,11 @@ macOS 最后一条改为 `npm run tauri build -- --bundles dmg`。构建脚本�
 推送本仓库到自己的 GitHub 仓库后：
 
 ```sh
-git tag v0.4.0
-git push origin v0.4.0
+git tag v0.5.0
+git push origin v0.5.0
 ```
 
-`release.yml` 分别测试、构建 Windows、macOS ARM64 和 Intel，全部成功后合并产物、创建 Release。手动运行 workflow 只上传 Actions artifacts。当前源码版本为 `0.4.0`；下一次发布同步更新 package.json、package-lock.json、Cargo.toml、tauri.conf.json 和后端版本。
+`release.yml` 分别测试、构建 Windows、macOS ARM64 和 Intel，全部成功后合并产物、创建 Release。手动运行 workflow 只上传 Actions artifacts。当前源码版本为 `0.5.0`；下一次发布同步更新 package.json、package-lock.json、Cargo.toml、tauri.conf.json 和后端版本。
 
 需允许 Actions 写 Contents。签名证书和 API Key 均不入库。项目不含自动更新服务。
 

@@ -7,22 +7,23 @@ import {
 } from "react-router-dom";
 import { ArrowDown, ArrowLeft, ArrowUp, FileDown } from "lucide-react";
 import { api } from "../api";
-import type { Answer, KnowledgeCard } from "../types";
+import type { KnowledgeCard, LearningState } from "../types";
 import { networkMessage } from "../utils";
 import Card from "../components/Card";
 import ProgressBar from "../components/ProgressBar";
 import CardActions from "../components/CardActions";
-import { removeQueuedCard, replaceQueuedCard } from "../reviewQueue";
+
 
 export default function SwipePage() {
   const { deckId } = useParams();
   const [search] = useSearchParams();
   const wrongOnly = search.get("mode") === "wrong";
   const navigate = useNavigate();
-  const [queue, setQueue] = useState<KnowledgeCard[]>([]);
-  const [initialCount, setInitialCount] = useState(0);
-  const [index, setIndex] = useState(0);
-  const [answers, setAnswers] = useState<Record<number, Answer>>({});
+  const [state, setState] = useState<LearningState>();
+  const queue = state?.queue ?? [];
+  const answers = state?.answers ?? {};
+  const index = state?.index ?? 0;
+  const initialCount = state?.initial_count ?? 0;
   const [pending, setPending] = useState(false);
   const [contentBusy, setContentBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -35,16 +36,8 @@ export default function SwipePage() {
     const controller = new AbortController();
     setLoading(true);
     setError("");
-    (wrongOnly
-      ? api.wrong(Number(deckId), controller.signal)
-      : api.cards(Number(deckId), controller.signal)
-    )
-      .then((cards) => {
-        setQueue(cards);
-        setInitialCount(cards.length);
-        setIndex(0);
-        setAnswers({});
-      })
+    api.openSession(Number(deckId), wrongOnly ? "wrong" : "all", false, controller.signal)
+      .then(result => { if (!controller.signal.aborted) setState(result); })
       .catch((error) => {
         if (!controller.signal.aborted) setError(networkMessage(error));
       })
@@ -57,40 +50,37 @@ export default function SwipePage() {
     scroll.current?.scrollTo({ top: 0, behavior: "instant" });
   }, [index]);
 
+  async function saveMove(target: number, complete = false) {
+    if (!state || requestLock.current || contentBusy) return;
+    requestLock.current = true; setPending(true); setError("");
+    try {
+      const result = await api.moveSession(Number(deckId), state, target, complete);
+      setState(result);
+      if (complete) navigate(`/decks/${deckId}/summary`);
+    } catch (error) { setError(networkMessage(error)); }
+    finally { setPending(false); requestLock.current = false; }
+  }
   function next() {
     if (pending || contentBusy || !answers[index]) return;
-    if (index + 1 < queue.length) setIndex((value) => value + 1);
-    else navigate(`/decks/${deckId}/summary`);
+    void saveMove(Math.min(index + 1, queue.length - 1), index + 1 === queue.length);
   }
-  function previous() {
-    if (!pending && !contentBusy) setIndex((value) => Math.max(0, value - 1));
-  }
+  function previous() { if (index > 0) void saveMove(index - 1); }
   async function answer(selected: number) {
-    if (requestLock.current || contentBusy || answers[index]) return;
-    requestLock.current = true;
-    setPending(true);
-    setError("");
-    try {
-      const result = await api.answer(queue[index].id, selected);
-      setAnswers((current) => ({ ...current, [index]: result }));
-      if (!result.is_correct)
-        setQueue((current) => [...current, current[index]]);
-    } catch (error) {
-      setError(networkMessage(error));
-    } finally {
-      setPending(false);
-      requestLock.current = false;
-    }
+    if (!state || requestLock.current || contentBusy || answers[index]) return;
+    requestLock.current = true; setPending(true); setError("");
+    try { setState(await api.answerSession(Number(deckId), state, selected)); }
+    catch (error) { setError(networkMessage(error)); }
+    finally { setPending(false); requestLock.current = false; }
   }
-  function changed(card: KnowledgeCard) {
-    const result = replaceQueuedCard(queue,answers,card);
-    setAnswers(result.answers); setQueue(result.queue);
+  async function restart() {
+    if (requestLock.current) return;
+    requestLock.current = true; setPending(true); setError("");
+    try { setState(await api.openSession(Number(deckId), wrongOnly ? "wrong" : "all", true)); }
+    catch (error) { setError(networkMessage(error)); }
+    finally { setPending(false); requestLock.current = false; }
   }
-  function removed() {
-    const result = removeQueuedCard(queue,answers,index);
-    setQueue(result.queue); setAnswers(result.answers); setIndex(result.index);
-    setInitialCount(value => Math.max(0, value - 1));
-  }
+  function changed(_card?: KnowledgeCard) { setRetry(value => value + 1); }
+  function removed() { setRetry(value => value + 1); }
   if (loading)
     return (
       <div className="empty-page" role="status">
@@ -121,6 +111,13 @@ export default function SwipePage() {
         </div>
       </div>
     );
+  if (state?.completed) return <div className="session-complete">
+    <span className="eyebrow">WELL DONE</span><h1>这一轮，学完了</h1>
+    <p className="muted">进度已保存在本机，可以整理薄弱点，也可以开启新一轮复习</p>
+    {error && <p className="error-message" role="alert">{error}</p>}
+    <div className="flex flex-wrap gap-3 justify-center mt-6"><Link className="button primary" to={`/decks/${deckId}/summary`}>查看考前救命包</Link>
+    <button className="button secondary" disabled={pending} onClick={() => void restart()}>重新学习</button><Link className="button secondary" to="/">返回工作台</Link></div>
+  </div>;
   return (
     <div className="swipe-layout">
       <aside className="study-aside">
@@ -148,7 +145,8 @@ export default function SwipePage() {
           <FileDown size={17} />
           查看考前救命包
         </Link>
-        <p className="text-xs muted mt-12">
+        <p className="text-xs muted mt-8" role="status">{pending ? "正在保存学习进度…" : "学习进度已保存在本机"}</p>
+        <p className="text-xs muted mt-4">
           原始 {initialCount} 张 · 回炉 {queue.length - initialCount} 次
         </p>
       </aside>
@@ -191,7 +189,7 @@ export default function SwipePage() {
           />
           {error && (
             <p className="error-message m-4" role="alert">
-              {error}。答案尚未确认，请重新点选。
+              {error}<button className="text-link block mt-2" onClick={() => setRetry(value => value + 1)}>重新载入已保存进度</button>
             </p>
           )}
         </div>

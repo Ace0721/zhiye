@@ -19,7 +19,7 @@ export default function App() {
         <nav aria-label="主导航">
           <NavLink to="/" end>
             <BookOpen size={16} />
-            <span>我的课件</span>
+            <span>学习工作台</span>
           </NavLink>
           <NavLink to="/settings">
             <Settings2 size={16} />

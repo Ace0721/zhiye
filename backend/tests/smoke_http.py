@@ -198,9 +198,20 @@ def main() -> None:
                 editable["title"] = "手动修订的标题"
                 changed = request(f"/api/cards/{cards[0]['id']}", "-X", "PUT", "-H", "Content-Type: application/json", "-d", json.dumps(editable,ensure_ascii=False))
                 assert changed["title"] == editable["title"] and changed["revision"] == 1
+                learning_path = f"/api/decks/{state['deck_id']}/session"
+                saved = request(learning_path, "-H", "Content-Type: application/json", "-d", '{}')
+                saved = request(learning_path + "/all/answer", "-H", "Content-Type: application/json", "-d",
+                                json.dumps(dict(revision=saved["revision"], index=0, selected_index=1)))
+                assert len(saved["queue"]) == len(cards) + 1
+                saved = request(learning_path + "/all", "-X", "PUT", "-H", "Content-Type: application/json", "-d",
+                                json.dumps(dict(revision=saved["revision"], index=1)))
+                restored = request(learning_path, "-H", "Content-Type: application/json", "-d", '{}')
+                assert restored["index"] == 1 and restored["answers"] == saved["answers"]
+                shelf = request('/api/library?offset_minutes=480')
+                assert shelf["resume"]["index"] == 1 and shelf["stats"]["deck_count"] == 2
                 print(json.dumps({"result": "PASS", "pages": 20, "blocks": state["total_blocks"],
                                   "cards": len(cards), "states": states,
-                                  "frozen_binary": bool(args.binary), "review_export_settings": "PASS", "study_word": "PASS", "selection_edit_sources": "PASS",
+                                  "frozen_binary": bool(args.binary), "review_export_settings": "PASS", "study_word": "PASS", "selection_edit_sources": "PASS", "learning_resume": "PASS",
                                   "elapsed_seconds": round(time.monotonic() - started, 2),
                                   "api": "local mock; no cloud performance claim"}))
             finally:

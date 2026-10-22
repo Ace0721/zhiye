@@ -52,6 +52,30 @@ export interface DeckInfo {
   available_outputs: OutputKind[];
 }
 
+export interface LearningState {
+  queue: KnowledgeCard[];
+  answers: Record<number, Answer>;
+  index: number;
+  initial_count: number;
+  completed: boolean;
+  revision: number;
+  mode: "all" | "wrong";
+  updated_at: string;
+}
+export interface SavedSession {
+  deck_id: number; title: string; mode: "all" | "wrong";
+  index: number; total: number; answered: number; completed: boolean; updated_at: string;
+}
+export interface LibraryDeck extends DeckInfo {
+  source_filename: string; learned_count: number; wrong_count: number;
+  last_studied_at: string | null; tags: string[]; sessions: SavedSession[];
+}
+export interface LibraryData {
+  decks: LibraryDeck[]; resume: SavedSession | null;
+  stats: {deck_count: number; card_count: number; learned_count: number; wrong_count: number; today_count: number};
+  activity: {date: string; count: number}[];
+}
+
 export interface ReviewSummary {
   title: string;
   total_cards: number;

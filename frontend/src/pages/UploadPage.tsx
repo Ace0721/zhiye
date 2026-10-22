@@ -3,16 +3,16 @@ import { Link } from "react-router-dom";
 import {
   ArrowRight,
   Check,
-  FileText,
   Layers3,
   ShieldCheck,
   Upload,
   X,
 } from "lucide-react";
 import { api } from "../api";
-import type { DeckInfo, TaskState, OutputKind } from "../types";
+import type { LibraryData, TaskState, OutputKind } from "../types";
 import { networkMessage, taskLabel, validateFile } from "../utils";
 import ProgressBar from "../components/ProgressBar";
+import CourseLibrary, {LearningOverview} from "../components/LearningHome";
 
 export default function UploadPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -25,18 +25,20 @@ export default function UploadPage() {
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [retry, setRetry] = useState(0);
-  const [decks, setDecks] = useState<DeckInfo[]>([]);
+  const [library, setLibrary] = useState<LibraryData>();
+  const [libraryLoading, setLibraryLoading] = useState(true);
   const [libraryError, setLibraryError] = useState("");
   const input = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const controller = new AbortController();
+    setLibraryLoading(true);
     api
-      .decks(controller.signal)
-      .then(setDecks)
+      .library(controller.signal)
+      .then(data => {setLibrary(data);setLibraryError("");})
       .catch((error) => {
         if (!controller.signal.aborted) setLibraryError(networkMessage(error));
-      });
+      }).finally(() => { if (!controller.signal.aborted) setLibraryLoading(false); });
     return () => controller.abort();
   }, [task?.status, retry]);
 
@@ -96,12 +98,17 @@ export default function UploadPage() {
     uploading ||
     (!!taskId && !["completed", "failed"].includes(task?.status ?? "queued"));
   return (
-    <div className="upload-page">
+    <div className={`upload-page ${library?.decks.length ? "has-library" : ""}`}>
+      {libraryLoading && !library && <div className="dashboard-skeleton" role="status" aria-label="正在加载学习工作台"><span/><span/><span/></div>}
+      {libraryError && <div className="error-message my-5" role="alert">{libraryError}<button className="text-link ml-3" onClick={() => setRetry(value => value+1)}>重新加载工作台</button></div>}
+      {library && <LearningOverview data={library}/>}
+      {!!library?.decks.length && <CourseLibrary data={library} onTags={(id,tags) => setLibrary(current => current ? {...current,decks:current.decks.map(deck => deck.id === id ? {...deck,tags} : deck)} : current)}/>}
+
       <div className="page-kicker">
         <span className="status-dot" />
         课件在本地，知识随身带
       </div>
-      <section className="upload-layout">
+      <section className="upload-layout" id="upload">
         <div className="upload-intro">
           <span className="eyebrow">LESS SCROLLING. MORE KNOWING.</span>
           <h1>
@@ -277,7 +284,7 @@ export default function UploadPage() {
           </div>
         </div>
       </section>
-      <section className="feature-strip">
+      <section className="feature-strip" hidden={!!library?.decks.length}>
         <div>
           <span className="feature-number">01</span>
           <div>
@@ -300,59 +307,8 @@ export default function UploadPage() {
           </div>
         </div>
       </section>
-      <section className="library-section">
-        <div className="section-heading">
-          <h2>
-            我的课件
-            <span className="muted ml-2 text-sm font-normal">
-              {decks.length} 份
-            </span>
-          </h2>
-          <span className="eyebrow">YOUR STUDY SHELF</span>
-        </div>
-        {libraryError && (
-          <p className="error-message text-sm" role="alert">
-            {libraryError}
-            <button
-              className="text-link ml-3"
-              onClick={() => {
-                setLibraryError("");
-                setRetry((value) => value + 1);
-              }}
-            >
-              重试
-            </button>
-          </p>
-        )}
-        {decks.length ? (
-          <div className="deck-grid">
-            {decks.map((deck) => (
-              <div
-                className="deck-tile"
-                key={deck.id}
-              >
-                <FileText size={22} />
-                <div className="min-w-0 flex-1">
-                  <Link to={deck.card_count ? `/decks/${deck.id}` : `/decks/${deck.id}/study?tab=${deck.available_outputs?.includes('notes') ? 'notes' : 'map'}`}><h3 className="truncate">{deck.title}</h3></Link>
-                  <p>
-                    {deck.card_count ? `${deck.card_count} 张知识卡` : deck.available_outputs?.map(kind => ({cards:'知识卡',notes:'Word 提纲',map:'思维导图'})[kind]).join(' / ') || '尚未完成生成'} ·{" "}
-                    {new Date(deck.created_at).toLocaleDateString("zh-CN")}
-                  </p>
-                  <Link className="text-link text-sm" to={`/decks/${deck.id}/study?tab=${deck.available_outputs?.includes('notes') ? 'notes' : 'map'}`}>Word 资料 / 互动导图 →</Link>
-                </div>
-                <Link to={deck.card_count ? `/decks/${deck.id}` : `/decks/${deck.id}/study?tab=${deck.available_outputs?.includes('notes') ? 'notes' : 'map'}`} aria-label={`查看${deck.title}`}><ArrowRight size={17} /></Link>
-              </div>
-            ))}
-          </div>
-        ) : (
-          !libraryError && (
-            <div className="empty-shelf">
-              <FileText size={22} />
-              <p>第一份课件，等你放上来。</p>
-            </div>
-          )
-        )}
-      </section>
+      {library && !library.decks.length && <CourseLibrary data={library} onTags={(id,tags) => setLibrary(current => current ? {...current,decks:current.decks.map(deck => deck.id === id ? {...deck,tags} : deck)} : current)}/>}
+
     </div>
   );
 }

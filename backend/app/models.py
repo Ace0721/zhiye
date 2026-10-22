@@ -20,6 +20,22 @@ class Deck(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class LearningSession(Base):
+    __tablename__ = "learning_sessions"
+    deck_id: Mapped[int] = mapped_column(ForeignKey("decks.id"), primary_key=True)
+    mode: Mapped[str] = mapped_column(String(10), primary_key=True)
+    state_json: Mapped[str] = mapped_column(Text)
+    revision: Mapped[int] = mapped_column(Integer, default=0)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    __mapper_args__ = {"version_id_col": revision, "version_id_generator": False}
+
+
+class DeckLabel(Base):
+    __tablename__ = "deck_labels"
+    deck_id: Mapped[int] = mapped_column(ForeignKey("decks.id"), primary_key=True)
+    tags_json: Mapped[str] = mapped_column(Text, default="[]")
+
+
 class Card(Base):
     __tablename__ = "cards"
     __table_args__ = (UniqueConstraint("deck_id", "order_index"),)

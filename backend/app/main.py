@@ -8,10 +8,11 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.config import Settings, settings
 from app.db import Base, create_database
-from app.routers import cards, content, review, settings as settings_router, study, tasks, upload
+from app.routers import cards, content, learning, review, settings as settings_router, study, tasks, upload
 from app.services.task_manager import TaskManager
 from app.services.study_ai import StudyAIManager
 
@@ -39,7 +40,11 @@ def create_app(config: Settings | None = None) -> FastAPI:
             await study_manager.shutdown()
             engine.dispose()
 
-    application = FastAPI(title="Zhiye", version="0.4.0", lifespan=lifespan)
+    application = FastAPI(title="Zhiye", version="0.5.0", lifespan=lifespan)
+
+    @application.exception_handler(StaleDataError)
+    async def stale_progress(_request: Request, _error: StaleDataError) -> JSONResponse:
+        return JSONResponse(status_code=409, content={"detail": "学习进度已在其他窗口更新，请重新载入"})
 
     @application.exception_handler(RequestValidationError)
     async def validation_error(_request: Request, _error: RequestValidationError) -> JSONResponse:
@@ -60,6 +65,7 @@ def create_app(config: Settings | None = None) -> FastAPI:
     application.include_router(tasks.router)
     application.include_router(cards.router)
     application.include_router(content.router)
+    application.include_router(learning.router)
     application.include_router(review.router)
     application.include_router(study.router)
     application.include_router(settings_router.router)

@@ -11,6 +11,8 @@ import type {
   RevisionMap,
   ReviewSummary,
   OutputKind,
+  LearningState,
+  LibraryData,
 } from "./types";
 
 let desktopBase: Promise<string> | undefined;
@@ -80,6 +82,14 @@ const json = (body: unknown, method = "POST"): RequestInit => ({
   body: JSON.stringify(body),
 });
 export const api = {
+  library: (signal?: AbortSignal) => request<LibraryData>(`/api/library?offset_minutes=${-new Date().getTimezoneOffset()}`, {signal}),
+  saveTags: (id: number, tags: string[]) => request<{tags: string[]}>(`/api/decks/${id}/tags`, json({tags}, "PUT")),
+  openSession: (id: number, mode: "all" | "wrong", restart = false, signal?: AbortSignal) =>
+    request<LearningState>(`/api/decks/${id}/session`, {...json({mode, restart}), signal}),
+  moveSession: (id: number, state: LearningState, index: number, completed = false) =>
+    request<LearningState>(`/api/decks/${id}/session/${state.mode}`, json({revision: state.revision, index, completed}, "PUT")),
+  answerSession: (id: number, state: LearningState, selected_index: number) =>
+    request<LearningState>(`/api/decks/${id}/session/${state.mode}/answer`, json({revision: state.revision, index: state.index, selected_index})),
   saveCard: (card: KnowledgeCard) => request<KnowledgeCard>(`/api/cards/${card.id}`, json({
     title: card.title, plain_explanation: card.plain_explanation, key_point: card.key_point,
     question: card.question, options: card.options, correct_index: card.correct_index, reexplain: card.reexplain,
