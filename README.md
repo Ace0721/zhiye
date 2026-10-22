@@ -83,13 +83,13 @@ docker compose down
 
 发布者推送 `v*` 标签后，GitHub Actions 会在各平台构建安装包并上传到仓库 Releases。下载对应系统和架构的包，安装后在 **AI 设置**自行填写密钥。无需预装 Python 或 Node；Windows 缺少 WebView2 时安装器会自动下载运行时。
 
-**[v0.3.0 已发布](https://github.com/Ace0721/zhiye/releases/tag/v0.3.0)**，当前实测状态见 [验收记录](docs/verification.md)。未签名包可能受到系统提示，正式分发可在 CI 增加平台签名与 macOS 公证。
+在 **[Releases 下载页](https://github.com/Ace0721/zhiye/releases)** 选择最新已发布版本，当前源码版本为 v0.4.0，实测状态见 [验收记录](docs/verification.md)。未签名包可能受到系统提示，正式分发可在 CI 增加平台签名与 macOS 公证。
 
 | 系统 | 安装包 |
 | --- | --- |
-| Windows x64 | [下载 MSI](https://github.com/Ace0721/zhiye/releases/download/v0.3.0/Zhiye_0.3.0_x64_en-US.msi) |
-| macOS Apple Silicon | [下载 DMG](https://github.com/Ace0721/zhiye/releases/download/v0.3.0/Zhiye_0.3.0_aarch64.dmg) |
-| macOS Intel | [下载 DMG](https://github.com/Ace0721/zhiye/releases/download/v0.3.0/Zhiye_0.3.0_x64.dmg) |
+| Windows x64 | Releases 中的 `Zhiye_版本_x64_en-US.msi` |
+| macOS Apple Silicon | Releases 中的 `Zhiye_版本_aarch64.dmg` |
+| macOS Intel | Releases 中的 `Zhiye_版本_x64.dmg` |
 
 Windows MSI、Apple Silicon 和 Intel Mac DMG 已由 GitHub Actions 构建成功，Windows 包已在本机完成解包启动检查。本机最初两轮构建曾受 Cargo 网络阻断；保留 [Electron 保底方案对比](docs/desktop-fallback.md)供后续参考，当前使用指定的 Tauri 技术栈。
 
