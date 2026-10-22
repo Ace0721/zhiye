@@ -92,7 +92,7 @@ export default function SwipePage() {
           {error
             ? "卡片暂时没能加载"
             : wrongOnly
-              ? "还没有错题，继续保持。"
+              ? "还没有错题，继续保持"
               : "这份课件还没有卡片"}
         </h1>
         {error && <p className="error-message my-4">{error}</p>}
@@ -120,7 +120,7 @@ export default function SwipePage() {
         <h2>
           一次，
           <br />
-          弄懂一个点。
+          弄懂一个点
         </h2>
         <p className="muted leading-7">
           不用赶进度。
