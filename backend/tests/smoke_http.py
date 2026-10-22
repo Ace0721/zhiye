@@ -11,11 +11,13 @@ import sys
 import tempfile
 import threading
 import time
+from io import BytesIO
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
 from reportlab.pdfgen import canvas
+from docx import Document
 
 
 class TemporaryWorkspace(tempfile.TemporaryDirectory):
@@ -135,12 +137,19 @@ def main() -> None:
                 summary = request(f"/api/decks/{state['deck_id']}/summary")
                 assert "考前救命包" in summary["markdown"]
                 assert summary["wrong_count"] == 1
+                material = request(f"/api/decks/{state['deck_id']}/study")
+                assert material["points"]
+                exported = subprocess.run([curl, "--fail-with-body", "--silent", "--max-time", "10",
+                                           f"http://127.0.0.1:{backend_port}/api/decks/{state['deck_id']}/study.docx"],
+                                          capture_output=True, check=True)
+                word = Document(BytesIO(exported.stdout))
+                assert any(paragraph.text == "重点速记" for paragraph in word.paragraphs)
                 settings = request("/api/settings")
                 assert settings["api_key_configured"] and "api_key" not in settings
                 assert request("/api/settings/test", "-X", "POST")["success"]
                 print(json.dumps({"result": "PASS", "pages": 20, "blocks": state["total_blocks"],
                                   "cards": len(cards), "states": states,
-                                  "frozen_binary": bool(args.binary), "review_export_settings": "PASS",
+                                  "frozen_binary": bool(args.binary), "review_export_settings": "PASS", "study_word": "PASS",
                                   "elapsed_seconds": round(time.monotonic() - started, 2),
                                   "api": "local mock; no cloud performance claim"}))
             finally:
