@@ -10,7 +10,7 @@ from app.main import create_app
 from app.models import Deck, DeckSource, StudyArtifact
 from app.schemas import RevisionNotes
 from app.services.ai_client import AIError
-from app.services.study_ai import parse_output
+from app.services.study_ai import parse_output, StudyAIManager
 
 
 NOTES = {"title": "民事诉讼复习提纲", "overview": "围绕诉讼主体、举证与程序推进，理解权利如何获得救济。",
@@ -21,6 +21,58 @@ MAP = {"title": "民事诉讼的运行逻辑", "overview": "从诉讼主体出�
         {"label": "举证责任", "relation": "分配责任", "detail": "明确谁需要为主张提供证明。", "children": []}]},
     {"label": "程序推进", "relation": "遵循", "detail": "程序约束争议的处理过程。", "children": [
         {"label": "起诉与受理", "relation": "始于", "detail": "符合起诉条件后进入审理程序。", "children": []}]}]}
+
+
+@pytest.mark.parametrize("output, expected", [
+    (dict(NOTES, sections=[{"heading":"核心概念","bullets":["密"*101]}]), "第1个主题 / 第1条要点：最多100字符"),
+    ({key:value for key,value in NOTES.items() if key != "overview"}, "概述：缺少必填字段"),
+    (dict(NOTES, sections=[{"heading":str(i),"bullets":["长"*100]*4} for i in range(6)]), "正文合计超过1600字符"),
+    (dict(NOTES, **{"PRIVATE_SECRET_MUST_NOT_APPEAR":"private-value"}), "未知字段：包含格式之外的字段"),
+])
+def test_precise_notes_errors_without_echoing_content(output, expected):
+    with pytest.raises(AIError) as caught:
+        parse_output(json.dumps(output), "notes")
+    message = str(caught.value)
+    assert expected in message and "思维导图" not in message
+    assert "PRIVATE_SECRET" not in message and "private-value" not in message and "密"*20 not in message
+
+
+async def test_correction_receives_actual_errors_and_previous_output(config, monkeypatch):
+    async def no_delay(_seconds): pass
+    monkeypatch.setattr("app.services.study_ai.asyncio.sleep", no_delay)
+    calls = []
+    invalid = dict(NOTES, sections=[{"heading":"举证责任","bullets":["长"*101]}])
+
+    class Client:
+        async def complete(self, prompt, text, **kwargs):
+            calls.append((prompt,text))
+            return json.dumps(invalid if len(calls) == 1 else NOTES)
+
+    manager = StudyAIManager(config, None, asyncio.Semaphore(1))
+    result = await manager._call(Client(), "只输出规定的JSON", "原课件正文", "notes")
+    assert json.loads(result)["title"] == NOTES["title"] and len(calls) == 2
+    correction = json.loads(calls[1][1])
+    assert correction["source"] == "原课件正文"
+    assert json.loads(correction["previous_output"]) == invalid
+    assert "第1条要点：最多100字符" in correction["validation_errors"]
+
+
+async def test_failed_correction_reports_latest_error_and_stops(config, monkeypatch):
+    async def no_delay(_seconds): pass
+    monkeypatch.setattr("app.services.study_ai.asyncio.sleep", no_delay)
+    calls = 0
+
+    class Client:
+        async def complete(self, prompt, text, **kwargs):
+            nonlocal calls
+            calls += 1
+            return 'not JSON' if calls == 1 else json.dumps(dict(NOTES,overview="长"*101))
+
+    manager = StudyAIManager(config, None, asyncio.Semaphore(1))
+    with pytest.raises(AIError) as caught:
+        await manager._call(Client(), "规定的JSON", "课件正文", "notes")
+    assert calls == 2 and "概述：最多100字符" in str(caught.value)
+    assert "已自动修正1次" in str(caught.value) and not caught.value.retryable
 
 
 def test_reject_flat_map_and_overlong_notes() -> None:

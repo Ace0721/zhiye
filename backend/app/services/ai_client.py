@@ -63,6 +63,8 @@ class AIClient:
                     messages=[{"role": "system", "content": prompt}, {"role": "user", "content": text}],
                     **extra,
                 )
+            if response.choices and response.choices[0].finish_reason == "length":
+                raise AIError("AI 输出达到长度上限，结果被截断；请压缩文字与来源引文后重试", retryable=True)
             content = response.choices[0].message.content if response.choices else None
             if max_tokens is None and (not isinstance(content, str) or not content.strip()):
                 raise AIError("AI 返回了空内容", retryable=True)

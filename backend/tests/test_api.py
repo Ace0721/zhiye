@@ -141,3 +141,19 @@ async def test_sdk_network_errors_are_friendly(failure: str) -> None:
         assert "private" not in str(captured.value)
     finally:
         await ai.close()
+
+
+async def test_sdk_reports_truncated_output_without_echoing_text() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"id":"test","object":"chat.completion","created":0,"model":"test",
+            "choices":[{"index":0,"finish_reason":"length","message":{"role":"assistant","content":"private truncated output"}}]})
+    ai = AIClient(AIConfig("https://example.invalid/v1", "test", "model"), 1)
+    await ai.client.close()
+    ai.client = openai.AsyncOpenAI(api_key="test", base_url="https://example.invalid/v1", max_retries=0,
+        http_client=httpx.AsyncClient(transport=httpx.MockTransport(handler)))
+    try:
+        with pytest.raises(AIError, match="截断") as caught:
+            await ai.complete("prompt", "text", max_tokens=5000)
+        assert caught.value.retryable and "private" not in str(caught.value)
+    finally:
+        await ai.close()
