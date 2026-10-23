@@ -131,7 +131,7 @@ def edit_study(deck_id: int, kind: StudyKind, body: StudyEdit, request: Request)
     try:
         material = model.model_validate(body.data)
     except ValidationError:
-        message = "提纲最多6个主题、每主题1–4条、正文至多1600字符" if kind == "notes" else "导图需要主题与下级概念，最多3层分支、65个节点，节点名至多28字"
+        message = "提纲至少需要一个有正文的主题，请检查空白字段或异常过大的内容" if kind == "notes" else "导图需要主题与下级概念，最多3层分支、65个节点，节点名至多28字"
         raise HTTPException(422, message) from None
     with request.app.state.sessions.begin() as session:
         row = session.scalar(select(StudyArtifact).where(StudyArtifact.deck_id == deck_id, StudyArtifact.kind == kind))

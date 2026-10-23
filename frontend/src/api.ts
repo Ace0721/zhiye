@@ -104,6 +104,8 @@ export const api = {
     request<StudyState<RevisionNotes | RevisionMap>>(`/api/decks/${id}/study/${kind}`, { signal }),
   generateStudy: (id: number, kind: "notes" | "map") =>
     request<StudyState<RevisionNotes | RevisionMap>>(`/api/decks/${id}/study/${kind}`, { method: "POST" }),
+  cancelStudy: (id: number, kind: "notes" | "map") =>
+    request<StudyState<RevisionNotes | RevisionMap>>(`/api/decks/${id}/study/${kind}/cancel`, { method: "POST" }),
   study: (id: number, signal?: AbortSignal) =>
     request<StudyMaterial>(`/api/decks/${id}/study`, { signal }),
   studyWord: (id: number) =>

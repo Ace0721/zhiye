@@ -62,3 +62,11 @@ async def generate_material(deck_id: int, kind: StudyKind, request: Request) -> 
         raise HTTPException(404, "课件不存在") from None
     except AIError as exc:
         raise HTTPException(400, str(exc)) from None
+
+
+@router.post("/{deck_id}/study/{kind}/cancel")
+async def cancel_material(deck_id: int, kind: StudyKind, request: Request) -> dict:
+    try:
+        return await request.app.state.study_manager.cancel(deck_id, kind)
+    except LookupError:
+        raise HTTPException(404, "课件不存在") from None

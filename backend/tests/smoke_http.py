@@ -67,9 +67,10 @@ class MockHandler(BaseHTTPRequestHandler):
                 {"label": "动力学关系", "relation": "遵循", "detail": "合外力决定加速度。", "source_refs":refs, "children": [
                     {"label": "F = ma", "relation": "表达为", "detail": "合力等于质量乘加速度，惯性参考系下成立。", "children": [], "source_refs":refs}]}]}, ensure_ascii=False)
         elif "课程复习资料编辑" in prompt:
-            content = json.dumps({"title": "牛顿第二定律复习", "overview": "理解合力、质量与加速度之间的关系。",
-                "sections": [{"heading": "核心关系", "bullets": ["F = ma；质量一定时，合力加倍，加速度加倍。"],"source_refs":refs}],
-                "pitfalls": ["公式中的力是合外力。"]}, ensure_ascii=False)
+            content = "# 牛顿第二定律复习\n理解合力、质量与加速度之间的关系。\n## 核心关系\n- F = ma；质量一定时，合力加倍，加速度加倍。\n"
+            if refs:
+                content += f"> 来源：第{refs[0]['page']}页/张｜{refs[0]['quote']}\n"
+            content += "## 易混与边界\n- 公式中的力是合外力。"
         elif "学科知识骨架" in prompt:
             content = "牛顿第二定律：合外力F等于质量m乘加速度a；惯性参考系下适用。"
         data = json.dumps({

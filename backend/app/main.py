@@ -40,7 +40,7 @@ def create_app(config: Settings | None = None) -> FastAPI:
             await study_manager.shutdown()
             engine.dispose()
 
-    application = FastAPI(title="Zhiye", version="0.5.1", lifespan=lifespan)
+    application = FastAPI(title="Zhiye", version="0.5.2", lifespan=lifespan)
 
     @application.exception_handler(StaleDataError)
     async def stale_progress(_request: Request, _error: StaleDataError) -> JSONResponse:

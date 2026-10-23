@@ -23,25 +23,23 @@ MAP = {"title": "民事诉讼的运行逻辑", "overview": "从诉讼主体出�
         {"label": "起诉与受理", "relation": "始于", "detail": "符合起诉条件后进入审理程序。", "children": []}]}]}
 
 
-@pytest.mark.parametrize("output, expected", [
-    (dict(NOTES, sections=[{"heading":"核心概念","bullets":["密"*101]}]), "第1个主题 / 第1条要点：最多100字符"),
-    ({key:value for key,value in NOTES.items() if key != "overview"}, "概述：缺少必填字段"),
-    (dict(NOTES, sections=[{"heading":str(i),"bullets":["长"*100]*4} for i in range(6)]), "正文合计超过1600字符"),
-    (dict(NOTES, **{"PRIVATE_SECRET_MUST_NOT_APPEAR":"private-value"}), "未知字段：包含格式之外的字段"),
+@pytest.mark.parametrize("output", [
+    dict(NOTES, sections=[{"heading":"核心概念","bullets":["密"*101]}]),
+    {key:value for key,value in NOTES.items() if key != "overview"},
+    dict(NOTES, sections=[{"heading":str(i),"bullets":[f"要点{j}："+"长"*100 for j in range(5)]} for i in range(8)]),
+    dict(NOTES, **{"PRIVATE_SECRET_MUST_NOT_APPEAR":"private-value"}),
 ])
-def test_precise_notes_errors_without_echoing_content(output, expected):
-    with pytest.raises(AIError) as caught:
-        parse_output(json.dumps(output), "notes")
-    message = str(caught.value)
-    assert expected in message and "思维导图" not in message
-    assert "PRIVATE_SECRET" not in message and "private-value" not in message and "密"*20 not in message
+def test_notes_accept_flexible_lengths_and_optional_metadata(output):
+    result = parse_output(json.dumps(output), "notes")
+    assert result.sections
+    assert "PRIVATE_SECRET" not in result.model_dump_json() and "private-value" not in result.model_dump_json()
 
 
 async def test_correction_receives_actual_errors_and_previous_output(config, monkeypatch):
     async def no_delay(_seconds): pass
     monkeypatch.setattr("app.services.study_ai.asyncio.sleep", no_delay)
     calls = []
-    invalid = dict(NOTES, sections=[{"heading":"举证责任","bullets":["长"*101]}])
+    invalid = dict(NOTES, sections=[])
 
     class Client:
         async def complete(self, prompt, text, **kwargs):
@@ -54,7 +52,7 @@ async def test_correction_receives_actual_errors_and_previous_output(config, mon
     correction = json.loads(calls[1][1])
     assert correction["source"] == "原课件正文"
     assert json.loads(correction["previous_output"]) == invalid
-    assert "第1条要点：最多100字符" in correction["validation_errors"]
+    assert "未返回可用正文" in correction["validation_errors"]
 
 
 async def test_failed_correction_reports_latest_error_and_stops(config, monkeypatch):
@@ -66,22 +64,21 @@ async def test_failed_correction_reports_latest_error_and_stops(config, monkeypa
         async def complete(self, prompt, text, **kwargs):
             nonlocal calls
             calls += 1
-            return 'not JSON' if calls == 1 else json.dumps(dict(NOTES,overview="长"*101))
+            return 'not JSON' if calls == 1 else '{'
 
     manager = StudyAIManager(config, None, asyncio.Semaphore(1))
     with pytest.raises(AIError) as caught:
         await manager._call(Client(), "规定的JSON", "课件正文", "notes")
-    assert calls == 2 and "概述：最多100字符" in str(caught.value)
+    assert calls == 2 and "不是合法JSON" in str(caught.value)
     assert "已自动修正1次" in str(caught.value) and not caught.value.retryable
 
 
-def test_reject_flat_map_and_overlong_notes() -> None:
+def test_reject_flat_map_but_accept_longer_notes() -> None:
     flat = dict(MAP, branches=[dict(MAP["branches"][0], children=[])])
     with pytest.raises(AIError):
         parse_output(json.dumps(flat), "map")
     notes = dict(NOTES, sections=[{"heading": str(i), "bullets": ["长" * 100] * 4} for i in range(6)])
-    with pytest.raises(AIError):
-        parse_output(json.dumps(notes), "notes")
+    assert parse_output(json.dumps(notes), "notes").sections
     assert parse_output("```json\n" + json.dumps(NOTES) + "\n```", "notes").title == NOTES["title"]
 
 
@@ -144,7 +141,7 @@ async def test_long_input_preserves_tail_and_limits_concurrency(config) -> None:
             active += 1; peak = max(peak, active)
             try:
                 await asyncio.sleep(0.005)
-                return json.dumps(NOTES) if "严格JSON对象" in prompt else "压缩后的概念骨架"
+                return json.dumps(NOTES) if "课程复习资料编辑" in prompt else "压缩后的概念骨架"
             finally:
                 active -= 1
         async def close(self): pass

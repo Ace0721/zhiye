@@ -124,4 +124,8 @@ export interface StudyState<T> {
   data: T | null;
   source_type: "course_text" | "knowledge_cards" | null;
   revision?: string;
+  stage?: string | null;
+  elapsed_seconds?: number | null;
+  request_timeout_seconds?: number;
+  warnings?: string[];
 }

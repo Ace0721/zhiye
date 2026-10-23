@@ -23,6 +23,7 @@ export default function StudyPage() {
   const [retry, setRetry] = useState(0);
   const [saving, setSaving] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [stopping, setStopping] = useState(false);
   const [hasCards, setHasCards] = useState(false);
   const state = states[tab];
   const busy = starting || state?.status === "queued" || state?.status === "generating";
@@ -40,14 +41,19 @@ export default function StudyPage() {
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout>;
+    let failures = 0;
     setError("");
     async function poll() {
       try {
         const result = await api.studyState(Number(deckId), tab, controller.signal);
         if (controller.signal.aborted) return;
         setStates(previous => ({ ...previous, [tab]: result }));
+        failures = 0; setError("");
         if (result.status === "queued" || result.status === "generating") timer = setTimeout(poll, 1000);
-      } catch (error) { if (!controller.signal.aborted) setError(networkMessage(error)); }
+      } catch (error) { if (!controller.signal.aborted) {
+        failures += 1; setError(networkMessage(error));
+        if (failures < 3) timer = setTimeout(poll, 2000);
+      } }
     }
     void poll();
     return () => { controller.abort(); clearTimeout(timer); };
@@ -82,6 +88,16 @@ export default function StudyPage() {
     } catch (error) { setError(networkMessage(error)); }
     finally { setSaving(false); }
   }
+  async function stop() {
+    if (stopping) return;
+    setStopping(true); setError("");
+    const kind = tab;
+    try {
+      const result = await api.cancelStudy(Number(deckId),kind);
+      setStates(previous => ({...previous,[kind]:result})); setRetry(value => value+1);
+    } catch(error) { setError(networkMessage(error)); }
+    finally { setStopping(false); }
+  }
   const notes = tab === "notes" ? state?.data as RevisionNotes | null : null;
   const map = tab === "map" ? state?.data as RevisionMap | null : null;
   const noteLength = notes ? Array.from(notes.title + notes.overview + notes.sections.map(section => section.heading + section.bullets.join("")).join("") + notes.pitfalls.join("")).length : 0;
@@ -96,11 +112,12 @@ export default function StudyPage() {
       {hasCards && <Link className="text-link" to={`/decks/${deckId}`}>刷卡自测 →</Link>}
     </div>
     <div className="study-heading"><div><h2>{tab === "map" ? "先看结构，再理解细节" : "只留最该掌握的内容"}</h2>
-      <p className="muted text-sm">{tab === "map" ? "按主题分组 · 标明概念关系 · 点击逐层展开" : "合并重复概念 · 保留公式与条件 · 正文最多1600字"}</p></div>
+      <p className="muted text-sm">{tab === "map" ? "按主题分组 · 标明概念关系 · 点击逐层展开" : "合并重复概念 · 保留公式与条件 · 按内容灵活组织篇幅"}</p></div>
       <div className="flex gap-2 flex-wrap">
         {state?.status === "completed" && <button className="button secondary" onClick={() => setEditing(true)}>{tab === "notes" ? "编辑提纲" : "编辑导图概述"}</button>}
         {tab === "notes" && state?.status === "completed" && <button className="button secondary" disabled={saving} onClick={() => void download()}><Download size={17} />{saving ? "保存中…" : "下载 Word"}</button>}
         <button className="button primary" disabled={busy} onClick={() => void generate()}><Sparkles size={17} />{busy ? "AI 正在整理…" : state?.data ? "重新生成" : "开始 AI 生成"}</button>
+        {busy && !starting && <button className="button secondary" disabled={stopping} onClick={() => void stop()}>{stopping ? "正在停止…" : "停止生成"}</button>}
       </div>
     </div>
     <p className="study-api-note">点击生成会调用你设置的云端 API，可能产生厂商费用；查看缓存和下载 Word 不再次调用。</p>
@@ -108,7 +125,8 @@ export default function StudyPage() {
     {error && <div className="error-message my-4" role="alert">{error}<button className="text-link ml-3" onClick={() => setRetry(value => value + 1)}>重新连接</button></div>}
     {state?.status === "failed" && <div className="error-message my-4" role="alert">{state.error}。可点击上方按钮重试。</div>}
     {notice && <p className="success-message my-4" role="status">{notice}</p>}
-    {busy && <div className="study-generating" role="status"><h3>{(state?.progress ?? 0) < 75 ? "正在提炼资料与知识主线" : "正在组织主题与检查输出"}</h3><ProgressBar value={state?.progress ?? 0} label="AI 整理进度" /><p>进度按实际处理阶段更新，等待模型响应时会暂时停留。</p></div>}
+    {state?.warnings?.map(message => <p className="study-source-note" key={message}>{message}</p>)}
+    {busy && <div className="study-generating" role="status"><h3>{error ? "连接中断，暂时无法确认后台进度" : state?.stage || ((state?.progress ?? 0) < 75 ? "正在提炼资料与知识主线" : "正在生成复习内容")}</h3><ProgressBar value={state?.progress ?? 0} label="AI 整理进度" /><p>{state?.elapsed_seconds != null && `已等待 ${state.elapsed_seconds} 秒 · `}单次请求最多等待 {state?.request_timeout_seconds ?? 60} 秒，失败自动重试一次。等待模型时进度会停留，可点击停止生成。</p></div>}
     {!state && !error && <p className="muted my-6">正在读取本地记录…</p>}
     {state?.status === "idle" && <div className="study-empty"><span>从零散的知识，到清晰的主线</span><p>{tab === "map" ? "AI 将归纳主题、核心概念及其关系，不再平铺知识卡标题。" : "AI 将筛选和合并内容，生成短提纲，不再把每张卡的解释抄进 Word。"}</p></div>}
     <div id="study-result" role="tabpanel" aria-label={tab === "map" ? "逻辑思维导图" : "AI 精简提纲"}>

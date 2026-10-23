@@ -128,24 +128,25 @@ class StudyMaterial(BaseModel):
 
 
 class NotesSection(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    heading: Annotated[NonEmpty, Field(max_length=24)]
-    bullets: Annotated[list[Annotated[NonEmpty, Field(max_length=100)]], Field(min_length=1, max_length=4)]
+    model_config = ConfigDict(extra="ignore")
+    heading: Annotated[NonEmpty, Field(max_length=200)]
+    bullets: Annotated[list[Annotated[NonEmpty, Field(max_length=8000)]], Field(min_length=1, max_length=128)]
     source_refs: Annotated[list[SourceRef], Field(max_length=6)] = Field(default_factory=list)
 
 
 class RevisionNotes(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    title: Annotated[NonEmpty, Field(max_length=40)]
-    overview: Annotated[NonEmpty, Field(max_length=100)]
-    sections: Annotated[list[NotesSection], Field(min_length=1, max_length=6)]
-    pitfalls: Annotated[list[Annotated[NonEmpty, Field(max_length=80)]], Field(max_length=4)]
+    model_config = ConfigDict(extra="ignore")
+    title: Annotated[NonEmpty, Field(max_length=200)]
+    overview: Annotated[str, Field(max_length=8000)] = ""
+    sections: Annotated[list[NotesSection], Field(min_length=1, max_length=64)]
+    pitfalls: Annotated[list[Annotated[NonEmpty, Field(max_length=8000)]], Field(max_length=128)] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def compact(self) -> "RevisionNotes":
         text = self.title + self.overview + "".join(section.heading + "".join(section.bullets) for section in self.sections) + "".join(self.pitfalls)
-        if len(text) > 1600:
-            raise ValueError("复习提纲超过1600字，必须压缩合并")
+        # 精简程度由提示词控制，只保留防止异常大对象耗尽本机资源的边界。
+        if len(text) > 50000:
+            raise ValueError("复习资料异常过长，请减少正文后重试")
         return self
 
 

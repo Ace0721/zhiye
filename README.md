@@ -27,8 +27,9 @@
 
 上传时可勾选 **知识卡 / Word 资料 / 互动导图**，单选或多选均可；只选资料或导图时不会生成选择题。之后也可从课件工作台补充生成其他内容，不用先完成刷题。
 
-- **AI 精简提纲**：使用独立提示词调用配置的 API，合并重复概念，按最多6个主题提炼核心结论、公式条件与易混区别，目标800～1200字、硬上限1600字符，不再拼接卡片或重复解释。生成后可预览和下载可编辑的 `.docx`。
-- 提纲或导图格式不合规时，显示具体字段、位置与篇幅要求，并带上原结果自动纠错一次；仍失败才提示重新生成。正文保持1600字符上限，JSON和简短来源引文另计输出额度。
+- **AI 精简提纲**：使用独立提示词调用配置的 API，合并重复概念，按学科主题提炼核心结论、公式条件与易混区别，目标约800～1500字；主题数、单条长度和1600字不再作为拒绝整份结果的硬条件，不再拼接卡片或重复解释。生成后可预览和下载可编辑的 `.docx`。
+- Word生成接受普通标题与要点，兼容旧JSON；程序整理空行、重复要点和可选来源，不机械截断正文或公式。过长内容给出提示而非整份失败，仍可下载和手动编辑。结构无法识别时自动纠错一次。
+- 整理页显示当前阶段、实际已等待秒数和单次超时设置，支持停止生成后重试；短暂轮询断线会自动重连两次。长课件提炼没有缩短原文时停止并明确说明，不反复处理至总超时。
 - **逻辑思维导图**：独立调用 API 归纳「主题 → 核心概念 → 条件与应用」，边上标明实际父子关系。中心向两侧展开，主题独立配色，支持搜索自动展开路径、缩放、折叠、拖动画布和详情查看。
 - 上传时按勾选内容调用云端 API，工作台也可点击「开始 AI 生成」补充内容，可能产生厂商费用；两种内容分别保存到 SQLite，打开缓存与下载 Word 不再次调用。重新生成会替换对应结果。任务进度持久化，重启会标记未完成任务失败并允许重试。
 - 新上传课件会将解析正文保留在本地 SQLite，用于独立整理；旧课件没有正文时会明确提示以已有知识点为资料，也可重新上传。长正文分批归纳后再整合，不直接截断末尾。原始文件仍在解析后删除。
@@ -97,7 +98,7 @@ docker compose down
 
 发布者推送 `v*` 标签后，GitHub Actions 会在各平台构建安装包并上传到仓库 Releases。下载对应系统和架构的包，安装后在 **AI 设置**自行填写密钥。无需预装 Python 或 Node；Windows 缺少 WebView2 时安装器会自动下载运行时。
 
-在 **[Releases 下载页](https://github.com/Ace0721/zhiye/releases)** 选择最新已发布版本，当前源码版本为 v0.5.1，实测状态见 [验收记录](docs/verification.md)。未签名包可能受到系统提示，正式分发可在 CI 增加平台签名与 macOS 公证。
+在 **[Releases 下载页](https://github.com/Ace0721/zhiye/releases)** 选择最新已发布版本，当前源码版本为 v0.5.2，实测状态见 [验收记录](docs/verification.md)。未签名包可能受到系统提示，正式分发可在 CI 增加平台签名与 macOS 公证。
 
 | 系统 | 安装包 |
 | --- | --- |
@@ -225,6 +226,8 @@ AI 配置优先级为 **AppSetting > 环境变量 > 默认值**，数据库使�
 
 学习接口返回 `queue`、`answers`、`index`、`initial_count`、`completed`、`revision`。旧版单卡答题接口保留兼容；新版刷卡使用学习现场接口，避免重复提交。
 
+`POST /api/decks/{deck_id}/study/{notes或map}/cancel` 可停止生成；状态接口另返回 `stage`、`elapsed_seconds`、`request_timeout_seconds` 和 `warnings`。
+
 编辑与来源接口：
 
 | 方法 | 路径 | 说明 |
@@ -297,7 +300,7 @@ git tag v0.5.0
 git push origin v0.5.0
 ```
 
-`release.yml` 分别测试、构建 Windows、macOS ARM64 和 Intel，全部成功后合并产物、创建 Release。手动运行 workflow 只上传 Actions artifacts。当前源码版本为 `0.5.1`；下一次发布同步更新 package.json、package-lock.json、Cargo.toml、tauri.conf.json 和后端版本。
+`release.yml` 分别测试、构建 Windows、macOS ARM64 和 Intel，全部成功后合并产物、创建 Release。手动运行 workflow 只上传 Actions artifacts。当前源码版本为 `0.5.2`；下一次发布同步更新 package.json、package-lock.json、Cargo.toml、tauri.conf.json 和后端版本。
 
 需允许 Actions 写 Contents。签名证书和 API Key 均不入库。项目不含自动更新服务。
 
